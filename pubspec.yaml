@@ -1,0 +1,68 @@
+name: personality_quiz_app
+description: "心探 - 探索内心的真实自我"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  
+  # State Management
+  provider: ^6.1.2
+  
+  # Local Storage
+  sqflite: ^2.4.1
+  sqflite_common_ffi: ^2.3.4+4
+  shared_preferences: ^2.3.4
+  path: ^1.9.0
+  path_provider: ^2.1.5
+  
+  # Screenshot & Share
+  screenshot: ^3.0.0
+  share_plus: ^10.1.4
+  image_gallery_saver_plus: ^3.0.5
+  file_picker: ^8.1.5
+  
+  # Utilities
+  uuid: ^4.5.1
+  
+  # Audio
+  audioplayers: ^6.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^5.0.0
+  
+  # Property-Based Testing
+  glados: ^1.1.7
+  
+  # Icon Generator
+  flutter_launcher_icons: ^0.14.1
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/sounds/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  windows:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    icon_size: 48
+  macos:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#1a1a2e"
+  adaptive_icon_foreground: "assets/icon/app_icon.png"
