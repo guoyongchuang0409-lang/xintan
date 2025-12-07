@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -97,71 +98,7 @@ class _ReportPageState extends State<ReportPage>
       _isLoading = false;
     });
     _animationController.forward();
-    
-    // Trigger auto-save screenshot after animation completes
-    // Requirements: 6.4 - Auto save screenshot when report is generated
-    if (_isFromNewQuiz && !_autoSaveTriggered) {
-      _autoSaveTriggered = true;
-      _animationController.addStatusListener(_onAnimationComplete);
-    }
-  }
-
-  void _onAnimationComplete(AnimationStatus status) {
-    if (status == AnimationStatus.completed) {
-      _animationController.removeStatusListener(_onAnimationComplete);
-      _checkAndAutoSaveScreenshot();
-    }
-  }
-  Future<void> _checkAndAutoSaveScreenshot() async {
-    if (!mounted) return;
-    
-    final settingsProvider = context.read<SettingsProvider>();
-    
-    if (settingsProvider.autoSaveScreenshot) {
-      // Small delay to ensure the widget is fully rendered
-      await Future.delayed(const Duration(milliseconds: 300));
-      if (!mounted) return;
-      
-      // 捕获截图
-      final imageBytes = await _screenshotController.captureFromWidget(
-        _buildVisibleReportWidget(),
-        pixelRatio: 3.0,
-      );
-      
-      if (imageBytes == null) return;
-      
-      // 保存截图
-      final result = await AdvancedScreenshotUtils.saveScreenshot(
-        imageBytes,
-        fileName: 'quiz_report_${_report?.quizTypeName ?? "unknown"}_${DateTime.now().millisecondsSinceEpoch}',
-      );
-      
-      if (!mounted) return;
-      
-      // Requirements: 6.5 - 显示简短的成功提示通知
-      if (result.success) {
-        _showSnackBar('报告已自动保存到相册', AppColors.neonGreen);
-      }
-    }
-  }
-
-  Widget _buildVisibleReportWidget() {
-    final quizColor = _getQuizColor(_report!.quizTypeId);
-    return Container(
-      color: AppColors.background,
-      width: 500,
-      child: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildReportHeaderForScreenshot(quizColor),
-            const SizedBox(height: 20),
-            _buildSummarySection(quizColor),
-            const SizedBox(height: 20),
-            _buildDetailTable(quizColor),
-          ],
-        ),
-      ),
-    );
+    // 已删除自动截图功能
   }
 
   QuizReport _generateReport(QuizType quizType, Map<String, RatingLevel> ratings) {
@@ -344,13 +281,53 @@ class _ReportPageState extends State<ReportPage>
   Future<void> _shareReport() async {
     if (_report == null) return;
     
-    final quizType = _getQuizTypeFromReport(_report!);
-    final text = _generateShareText();
+    CustomDialog.showLoading(context, message: '正在生成分享图片...');
     
-    await Share.share(
-      text,
-      subject: 'Quiz Report - ${_report!.quizTypeName}',
+    // 构建完整的报告Widget
+    final quizColor = _getQuizColor(_report!.quizTypeId);
+    final fullReportWidget = _buildCompleteReportForScreenshot(quizColor);
+    
+    // 根据内容量计算延迟时间
+    final categoryCount = _report!.categoryStats.length;
+    final totalItems = _report!.ratings.length;
+    final delayMs = 800 + (categoryCount * 150) + (totalItems ~/ 5 * 30);
+    
+    // 捕获长截图
+    final imageBytes = await AdvancedScreenshotUtils.captureLongScreenshot(
+      widget: fullReportWidget,
+      pixelRatio: 3.0,
+      context: context,
+      targetWidth: 390,
+      delayMs: delayMs.clamp(800, 3000),
     );
+    
+    CustomDialog.dismissLoading();
+    
+    if (imageBytes == null) {
+      if (!mounted) return;
+      _showSnackBar('生成分享图片失败', AppColors.error);
+      return;
+    }
+    
+    // 保存到临时文件并分享
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/share_report_${DateTime.now().millisecondsSinceEpoch}.png');
+      await tempFile.writeAsBytes(imageBytes);
+      
+      await Share.shareXFiles(
+        [XFile(tempFile.path)],
+        text: '${_report!.quizTypeName} 测试报告',
+        subject: 'Quiz Report - ${_report!.quizTypeName}',
+      );
+      
+      // 分享后删除临时文件
+      await tempFile.delete();
+    } catch (e) {
+      debugPrint('分享失败: $e');
+      if (!mounted) return;
+      _showSnackBar('分享失败: $e', AppColors.error);
+    }
   }
   String _generateShareText() {
     final buffer = StringBuffer();
@@ -450,18 +427,9 @@ class _ReportPageState extends State<ReportPage>
                   ),
                   const SizedBox(height: 20),
                   ListTile(
-                    leading: Icon(
-                      Icons.image,
-                      color: AppColors.neonGreen,
-                    ),
-                    title: Text(
-                      '普通截图',
-                      style: TextStyle(color: AppColors.textPrimary),
-                    ),
-                    subtitle: Text(
-                      '保存当前显示的报告内容',
-                      style: TextStyle(color: AppColors.textMuted),
-                    ),
+                    leading: Icon(Icons.image, color: AppColors.neonGreen),
+                    title: Text('普通截图', style: TextStyle(color: AppColors.textPrimary)),
+                    subtitle: Text('保存当前显示的报告内容', style: TextStyle(color: AppColors.textMuted)),
                     onTap: () {
                       SoundService.instance.playButton();
                       Navigator.pop(context);
@@ -470,18 +438,9 @@ class _ReportPageState extends State<ReportPage>
                   ),
                   const Divider(color: AppColors.textMuted),
                   ListTile(
-                    leading: Icon(
-                      Icons.fullscreen,
-                      color: AppColors.neonPurple,
-                    ),
-                    title: Text(
-                      '长截图',
-                      style: TextStyle(color: AppColors.textPrimary),
-                    ),
-                    subtitle: Text(
-                      '生成包含所有内容的完整截图',
-                      style: TextStyle(color: AppColors.textMuted),
-                    ),
+                    leading: Icon(Icons.fullscreen, color: AppColors.neonPurple),
+                    title: Text('长截图', style: TextStyle(color: AppColors.textPrimary)),
+                    subtitle: Text('保存完整报告内容（包含所有详情）', style: TextStyle(color: AppColors.textMuted)),
                     onTap: () {
                       SoundService.instance.playButton();
                       Navigator.pop(context);
@@ -499,10 +458,17 @@ class _ReportPageState extends State<ReportPage>
   Future<void> _exportReport() async {
     CustomDialog.showLoading(context, message: '正在生成截图...');
     
-    // 捕获可见部分截图
-    final imageBytes = await _screenshotController.captureFromWidget(
-      _buildVisibleReportWidget(),
+    // 构建普通截图的widget（包含头部、概要、表格）
+    final quizColor = _getQuizColor(_report!.quizTypeId);
+    final screenshotWidget = _buildNormalScreenshotWidget(quizColor);
+    
+    // 捕获截图
+    final imageBytes = await AdvancedScreenshotUtils.captureLongScreenshot(
+      widget: screenshotWidget,
       pixelRatio: 3.0,
+      context: context,
+      targetWidth: 390,
+      delayMs: 500,
     );
     
     if (imageBytes == null) {
@@ -534,35 +500,261 @@ class _ReportPageState extends State<ReportPage>
       _showSnackBar(result.message, AppColors.error);
     }
   }
-  Future<void> _captureLongScreenshot({bool useCustomPath = false}) async {
-    CustomDialog.showLoading(context, message: '正在生成长截..');
+  
+  /// 构建普通截图的Widget（头部+概要+表格）
+  Widget _buildNormalScreenshotWidget(Color quizColor) {
+    return SizedBox(
+      width: 390, // 固定宽度
+      child: Container(
+        color: AppColors.background,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildReportHeaderForScreenshot(quizColor),
+            const SizedBox(height: 20),
+            _buildSummarySectionForScreenshot(quizColor),
+            const SizedBox(height: 20),
+            _buildDetailTableForScreenshot(quizColor),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  /// 截图专用的概要部分
+  Widget _buildSummarySectionForScreenshot(Color quizColor) {
+    // 计算总体统计
+    final totalCounts = <RatingLevel, int>{};
+    int totalItems = 0;
     
-    // 先展开所有选项
-    if (!_allExpanded) {
-      setState(() {
-        _allExpanded = true;
-        for (final key in _detailCardKeys.values) {
-          key.currentState?.setExpanded(true);
-        }
-      });
-      
-      // 等待UI更新
-      await Future.delayed(const Duration(milliseconds: 500));
+    for (final level in RatingLevel.values) {
+      totalCounts[level] = 0;
     }
     
-    // 构建完整的报告Widget（不依赖状态和动画
+    for (final stats in _report!.categoryStats.values) {
+      for (final entry in stats.levelCounts.entries) {
+        totalCounts[entry.key] = (totalCounts[entry.key] ?? 0) + entry.value;
+        totalItems += entry.value;
+      }
+    }
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.pie_chart_outline, color: quizColor, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              '总体统计',
+              style: TextStyle(color: quizColor, fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.neonCyan.withOpacity(0.5)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceLight,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.analytics_outlined, color: AppColors.neonCyan, size: 24),
+                    const SizedBox(width: 8),
+                    Text(
+                      '$totalItems 项评分',
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              ...RatingLevel.values.where((level) => (totalCounts[level] ?? 0) > 0).map((level) {
+                final count = totalCounts[level] ?? 0;
+                final percentage = totalItems > 0 
+                    ? (count / totalItems * 100).toStringAsFixed(1)
+                    : '0.0';
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _buildRatingRowForScreenshot(level, count, percentage),
+                );
+              }),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildRatingRowForScreenshot(RatingLevel level, int count, String percentage) {
+    final color = _getRatingColor(level);
+    return Row(
+      children: [
+        Container(
+          width: 50,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withOpacity(0.5)),
+          ),
+          child: Center(
+            child: Text(
+              level.code,
+              style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(level.description, style: const TextStyle(color: AppColors.textPrimary, fontSize: 13)),
+                  const Spacer(),
+                  Text('$count 项', style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+                  const SizedBox(width: 8),
+                  Text('($percentage%)', style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const SizedBox(height: 4),
+              LinearProgressIndicator(
+                value: double.parse(percentage) / 100,
+                backgroundColor: color.withOpacity(0.1),
+                valueColor: AlwaysStoppedAnimation<Color>(color.withOpacity(0.6)),
+                minHeight: 4,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+  
+  /// 截图专用的表格部分
+  Widget _buildDetailTableForScreenshot(Color quizColor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.table_chart_outlined, color: quizColor, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              '分类统计',
+              style: TextStyle(color: quizColor, fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.neonCyan.withOpacity(0.3)),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceLight,
+                    border: Border(bottom: BorderSide(color: AppColors.neonCyan.withOpacity(0.3))),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                  child: Row(
+                    children: [
+                      const Expanded(flex: 2, child: Text('分类', style: TextStyle(color: AppColors.neonCyan, fontWeight: FontWeight.bold, fontSize: 12), textAlign: TextAlign.center)),
+                      ...RatingLevel.values.map((level) => Expanded(
+                        child: Text(level.code, style: TextStyle(color: _getRatingColor(level), fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center),
+                      )),
+                    ],
+                  ),
+                ),
+                // Data rows
+                ..._report!.categoryStats.entries.toList().asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final stats = entry.value.value;
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: index % 2 == 0 ? AppColors.surface : AppColors.surface.withOpacity(0.5),
+                      border: Border(bottom: BorderSide(color: AppColors.textMuted.withOpacity(0.1))),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                    child: Row(
+                      children: [
+                        Expanded(flex: 2, child: Text(stats.categoryName, style: const TextStyle(color: AppColors.textPrimary, fontSize: 11), textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis)),
+                        ...RatingLevel.values.map((level) {
+                          final count = stats.levelCounts[level] ?? 0;
+                          final percentage = stats.levelPercentages[level] ?? 0.0;
+                          return Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(count.toString(), style: TextStyle(color: count > 0 ? _getRatingColor(level) : AppColors.textMuted, fontWeight: count > 0 ? FontWeight.bold : FontWeight.normal, fontSize: 13)),
+                                if (count > 0) Text('${percentage.toStringAsFixed(0)}%', style: TextStyle(color: _getRatingColor(level).withOpacity(0.7), fontSize: 9)),
+                              ],
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  Future<void> _captureLongScreenshot({bool useCustomPath = false}) async {
+    CustomDialog.showLoading(context, message: '正在生成长截图...');
+    
+    // 构建完整的报告Widget（包含所有内容，不依赖状态和动画）
     final quizColor = _getQuizColor(_report!.quizTypeId);
     final fullReportWidget = _buildCompleteReportForScreenshot(quizColor);
     
-    // 捕获长截
+    // 根据内容量计算延迟时间
+    final categoryCount = _report!.categoryStats.length;
+    final totalItems = _report!.ratings.length;
+    final delayMs = 800 + (categoryCount * 150) + (totalItems ~/ 5 * 30);
+    
+    // 捕获长截图
     final imageBytes = await AdvancedScreenshotUtils.captureLongScreenshot(
       widget: fullReportWidget,
       pixelRatio: 3.0,
+      context: context,
+      targetWidth: 390,
+      delayMs: delayMs.clamp(800, 3000),
     );
     
     if (imageBytes == null) {
+      CustomDialog.dismissLoading();
       if (!mounted) return;
-      _showSnackBar('截图生成失败，请重试试', AppColors.error);
+      _showSnackBar('截图生成失败，请重试', AppColors.error);
       return;
     }
     
@@ -578,11 +770,15 @@ class _ReportPageState extends State<ReportPage>
     
     if (result.success) {
       SoundService.instance.playSuccess();
-      final pathManager = PathManager.instance;
-      final hasCustomPath = await pathManager.hasCustomPath();
-      final message = hasCustomPath && !useCustomPath 
-          ? '已保存到指定目录' 
-          : result.message;
+      // 移动端显示"已保存至相册"，电脑端显示保存路径
+      String message;
+      if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+        final pathManager = PathManager.instance;
+        final hasCustomPath = await pathManager.hasCustomPath();
+        message = hasCustomPath && !useCustomPath ? '截图已保存到指定目录' : result.message;
+      } else {
+        message = '截图已保存至相册';
+      }
       _showSnackBar(message, AppColors.neonGreen);
     } else {
       _showSnackBar(result.message, AppColors.error);
@@ -617,28 +813,147 @@ class _ReportPageState extends State<ReportPage>
       );
     }
   }
+  /// 构建完整的报告Widget用于长截图
+  /// 使用MainAxisSize.min让Column根据内容自动确定高度
+  /// 不依赖滚动位置，包含所有报告部分
   Widget _buildCompleteReportForScreenshot(Color quizColor) {
+    // 使用SizedBox设置固定宽度，让截图有明确的边界
+    return SizedBox(
+      width: 390, // 固定宽度
+      child: Container(
+        color: AppColors.background,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min, // 让Column根据内容自动确定高度
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1. 报告头部 - 包含测试类型、时间、统计概览
+            _buildReportHeaderForScreenshot(quizColor),
+            const SizedBox(height: 20),
+            // 2. 概要部分 - 总体统计（使用截图专用版本）
+            _buildSummarySectionForScreenshot(quizColor),
+            const SizedBox(height: 20),
+            // 3. 详细表格 - 分类统计（使用截图专用版本）
+            _buildDetailTableForScreenshot(quizColor),
+            const SizedBox(height: 20),
+            // 4. 选择详情 - 全部展开显示所有选择项
+            _buildExpandedSelectionDetailsForScreenshot(quizColor),
+            const SizedBox(height: 20),
+            // 5. 分析部分 - 倾向分析
+            _buildAnalysisSectionForScreenshot(quizColor),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  /// 截图专用的选择详情部分
+  Widget _buildExpandedSelectionDetailsForScreenshot(Color quizColor) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.checklist, color: quizColor, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              '选择详情',
+              style: TextStyle(color: quizColor, fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ..._report!.categoryStats.entries.map((entry) {
+          final stats = entry.value;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _buildStaticSelectionCard(
+              categoryName: stats.categoryName,
+              selections: stats.selections,
+              accentColor: quizColor,
+            ),
+          );
+        }),
+      ],
+    );
+  }
+  
+  /// 截图专用的分析部分
+  Widget _buildAnalysisSectionForScreenshot(Color quizColor) {
+    // Calculate dominant rating
+    final totalCounts = <RatingLevel, int>{};
+    for (final level in RatingLevel.values) {
+      totalCounts[level] = 0;
+    }
+    for (final stats in _report!.categoryStats.values) {
+      for (final entry in stats.levelCounts.entries) {
+        totalCounts[entry.key] = (totalCounts[entry.key] ?? 0) + entry.value;
+      }
+    }
+    
+    RatingLevel? dominantLevel;
+    int maxCount = 0;
+    for (final entry in totalCounts.entries) {
+      if (entry.value > maxCount) {
+        maxCount = entry.value;
+        dominantLevel = entry.key;
+      }
+    }
+
     return Container(
-      color: AppColors.background,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: quizColor.withOpacity(0.6), width: 2),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 报告头部
-          _buildReportHeaderForScreenshot(quizColor),
-          const SizedBox(height: 20),
-          // 概要部分
-          _buildSummarySection(quizColor),
-          const SizedBox(height: 20),
-          // 详细表格
-          _buildDetailTable(quizColor),
-          const SizedBox(height: 20),
-          // 选择详情（全部展开
-          _buildExpandedSelectionDetails(quizColor),
-          const SizedBox(height: 20),
-          // 分析部分
-          _buildAnalysisSection(quizColor),
+          Row(
+            children: [
+              Icon(Icons.psychology_outlined, color: quizColor, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                '倾向分析',
+                style: TextStyle(color: quizColor, fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (dominantLevel != null) ...[
+            Text(
+              '主要倾向: ${dominantLevel.description}',
+              style: const TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _getAnalysisText(dominantLevel),
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 14, height: 1.6),
+            ),
+          ],
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceLight,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: AppColors.textMuted, size: 16),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    '本测试结果仅供参考，帮助你更好地了解自己的内心倾向。',
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -710,43 +1025,30 @@ class _ReportPageState extends State<ReportPage>
       ),
     );
   }
-  Widget _buildExpandedSelectionDetails(Color quizColor) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              '选择详情',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        ..._report!.categoryStats.entries.map((entry) {
-          final stats = entry.value;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _buildStaticSelectionCard(
-              categoryName: stats.categoryName,
-              selections: stats.selections,
-              accentColor: quizColor,
-            ),
-          );
-        }).toList(),
-      ],
-    );
-  }
   Widget _buildStaticSelectionCard({
     required String categoryName,
     required List<SelectionDetail> selections,
     required Color accentColor,
   }) {
+    // 安全处理空数据
+    if (selections.isEmpty) {
+      return Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppColors.textMuted.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Text(
+          '$categoryName - 暂无数据',
+          style: TextStyle(color: AppColors.textMuted),
+        ),
+      );
+    }
+    
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -757,6 +1059,8 @@ class _ReportPageState extends State<ReportPage>
         ),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
             padding: const EdgeInsets.all(16),
@@ -803,6 +1107,8 @@ class _ReportPageState extends State<ReportPage>
               children: selections.map((selection) {
                 final color = _getRatingColor(selection.rating);
                 return Container(
+                  // 使用约束盒子代替Flexible，避免在长截图中的布局问题
+                  constraints: const BoxConstraints(maxWidth: 200),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 6,
@@ -827,7 +1133,9 @@ class _ReportPageState extends State<ReportPage>
                         ),
                       ),
                       const SizedBox(width: 6),
-                      Flexible(
+                      // 使用ConstrainedBox代替Flexible，确保文本有固定的最大宽度
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 150),
                         child: Text(
                           selection.item.name,
                           style: const TextStyle(
@@ -835,6 +1143,7 @@ class _ReportPageState extends State<ReportPage>
                             fontSize: 12,
                           ),
                           overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
                       ),
                     ],

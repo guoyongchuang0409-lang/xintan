@@ -11,6 +11,7 @@ import '../providers/quiz_provider.dart';
 import '../widgets/neon_card.dart';
 import '../widgets/glow_button.dart';
 import '../widgets/category_tab.dart';
+import '../widgets/custom_dialog.dart';
 class QuizTestPage extends StatefulWidget {
   const QuizTestPage({super.key});
 
@@ -168,50 +169,19 @@ class _QuizTestPageState extends State<QuizTestPage>
     );
   }
 
-  void _showExitConfirmation() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-            color: AppColors.neonCyan.withOpacity(0.3),
-          ),
-        ),
-        title: const Text(
-          '确认退出',
-          style: TextStyle(color: AppColors.textPrimary),
-        ),
-        content: const Text(
-          '退出后当前测试进度将丢失，确定要退出吗？',
-          style: TextStyle(color: AppColors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              SoundService.instance.playClick();
-              Navigator.pop(context);
-            },
-            child: Text(
-              '继续测试',
-              style: TextStyle(color: AppColors.neonCyan),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              SoundService.instance.playClick();
-              Navigator.pop(context);
-              Navigator.pop(context);
-            },
-            child: Text(
-              '退出',
-              style: TextStyle(color: AppColors.error),
-            ),
-          ),
-        ],
-      ),
+  void _showExitConfirmation() async {
+    final confirmed = await CustomDialog.showConfirm(
+      context,
+      title: '确认退出',
+      content: '退出后当前测试进度将丢失，确定要退出吗？',
+      confirmText: '退出',
+      cancelText: '继续测试',
+      color: AppColors.neonCyan,
     );
+    
+    if (confirmed && mounted) {
+      Navigator.pop(context);
+    }
   }
 
 
@@ -389,7 +359,7 @@ class _QuizTestPageState extends State<QuizTestPage>
                     ),
                     child: Center(
                       child: Text(
-                        '${_getItemIndex(item) + 1}',
+                        '${_getItemIndexInCategory(item) + 1}',
                         style: TextStyle(
                           color: quizColor,
                           fontSize: 12,
@@ -454,18 +424,10 @@ class _QuizTestPageState extends State<QuizTestPage>
     );
   }
 
-  int _getItemIndex(QuizItem item) {
+  int _getItemIndexInCategory(QuizItem item) {
     if (_quizType == null) return 0;
-    int index = 0;
-    for (final category in _quizType!.categories) {
-      for (final categoryItem in category.items) {
-        if (categoryItem.id == item.id) {
-          return index;
-        }
-        index++;
-      }
-    }
-    return 0;
+    final currentCategory = _quizType!.categories[_currentCategoryIndex];
+    return currentCategory.items.indexWhere((i) => i.id == item.id);
   }
 
   Color _getRatingColor(RatingLevel level) {

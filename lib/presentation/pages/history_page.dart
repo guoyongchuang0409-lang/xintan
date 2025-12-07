@@ -8,6 +8,8 @@ import '../../domain/models/quiz_report.dart';
 import '../providers/report_provider.dart';
 import '../widgets/neon_card.dart';
 import '../widgets/mystic_background.dart';
+import '../widgets/custom_dialog.dart';
+
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
 
@@ -66,7 +68,6 @@ class _HistoryPageState extends State<HistoryPage>
     }
   }
 
-
   IconData _getQuizIcon(String quizTypeId) {
     switch (quizTypeId) {
       case 'female_desire':
@@ -99,50 +100,19 @@ class _HistoryPageState extends State<HistoryPage>
     );
   }
 
-  void _confirmDelete(QuizReport report) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-            color: AppColors.error.withOpacity(0.3),
-          ),
-        ),
-        title: const Text(
-          '确认删除',
-          style: TextStyle(color: AppColors.textPrimary),
-        ),
-        content: Text(
-          '确定要删除“${report.quizTypeName}”的测试记录吗？此操作无法撤销',
-          style: const TextStyle(color: AppColors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              SoundService.instance.playClick();
-              Navigator.pop(context);
-            },
-            child: Text(
-              '取消',
-              style: TextStyle(color: AppColors.textMuted),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              SoundService.instance.playClick();
-              Navigator.pop(context);
-              _deleteReport(report);
-            },
-            child: Text(
-              '删除',
-              style: TextStyle(color: AppColors.error),
-            ),
-          ),
-        ],
-      ),
+  void _confirmDelete(QuizReport report) async {
+    final confirmed = await CustomDialog.showConfirm(
+      context,
+      title: '确认删除',
+      content: '确定要删除"${report.quizTypeName}"的测试记录吗？此操作无法撤销',
+      confirmText: '删除',
+      cancelText: '取消',
+      color: AppColors.error,
     );
+    
+    if (confirmed && mounted) {
+      _deleteReport(report);
+    }
   }
 
   Future<void> _deleteReport(QuizReport report) async {
@@ -202,7 +172,6 @@ class _HistoryPageState extends State<HistoryPage>
       ),
     );
   }
-
 
   Widget _buildEmptyState() {
     return Center(

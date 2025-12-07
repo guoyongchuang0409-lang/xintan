@@ -4,6 +4,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_animations.dart';
 import '../../core/constants/quiz_data.dart';
 import '../../core/services/sound_service.dart';
+import '../../core/utils/responsive_utils.dart';
 import '../../domain/models/quiz_type.dart';
 import '../widgets/neon_card.dart';
 import '../widgets/mystic_background.dart';
@@ -27,6 +28,27 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // 桌面端使用侧边栏布局
+    if (ResponsiveUtils.shouldUseSideNav(context)) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: MysticBackground(
+          child: Row(
+            children: [
+              _buildSideNavigation(),
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: AppAnimations.normal,
+                  child: _pages[_currentIndex],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    // 移动端和平板使用底部导航栏
     return Scaffold(
       backgroundColor: AppColors.background,
       body: MysticBackground(
@@ -40,6 +62,15 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildBottomNavigationBar() {
+    final screenHeight = ResponsiveUtils.getHeight(context);
+    // 动态调整底部导航栏高度 - 减小内边距
+    final verticalPadding = screenHeight > 900 ? 6.0
+        : screenHeight > 800 ? 5.0
+        : screenHeight > 700 ? 4.0
+        : screenHeight > 600 ? 3.0
+        : 2.0;
+    final horizontalPadding = 8.0;
+    
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -60,7 +91,10 @@ class _HomePageState extends State<HomePage> {
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding, 
+            vertical: verticalPadding,
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -96,6 +130,28 @@ class _HomePageState extends State<HomePage> {
     required String label,
   }) {
     final isSelected = _currentIndex == index;
+    final screenHeight = ResponsiveUtils.getHeight(context);
+    // 动态调整导航项尺寸
+    final iconSize = screenHeight > 900 ? 24.0
+        : screenHeight > 800 ? 23.0
+        : screenHeight > 700 ? 22.0
+        : screenHeight > 600 ? 21.0
+        : 20.0;
+    final fontSize = screenHeight > 900 ? 12.0
+        : screenHeight > 800 ? 11.5
+        : screenHeight > 700 ? 11.0
+        : screenHeight > 600 ? 10.5
+        : 10.0;
+    final verticalPadding = screenHeight > 900 ? 6.0
+        : screenHeight > 800 ? 5.0
+        : screenHeight > 700 ? 4.0
+        : screenHeight > 600 ? 3.0
+        : 2.0;
+    final spacing = screenHeight > 900 ? 3.0
+        : screenHeight > 800 ? 2.5
+        : screenHeight > 700 ? 2.0
+        : 1.5;
+        
     return GestureDetector(
       onTap: () {
         SoundService.instance.playTap();
@@ -106,7 +162,10 @@ class _HomePageState extends State<HomePage> {
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: AppAnimations.fast,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: EdgeInsets.symmetric(
+          horizontal: 16, 
+          vertical: verticalPadding,
+        ),
         decoration: BoxDecoration(
           color: isSelected
               ? AppColors.neonCyan.withOpacity(0.15)
@@ -128,18 +187,152 @@ class _HomePageState extends State<HomePage> {
             Icon(
               isSelected ? activeIcon : icon,
               color: isSelected ? AppColors.neonCyan : AppColors.textMuted,
-              size: 24,
+              size: iconSize,
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: spacing),
             Text(
               label,
               style: TextStyle(
                 color: isSelected ? AppColors.neonCyan : AppColors.textMuted,
-                fontSize: 12,
+                fontSize: fontSize,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // 侧边导航栏(桌面端)
+  Widget _buildSideNavigation() {
+    return Container(
+      width: 240,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border(
+          right: BorderSide(
+            color: AppColors.neonCyan.withOpacity(0.1),
+            width: 1,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.neonCyan.withOpacity(0.15),
+            blurRadius: 20,
+            offset: const Offset(2, 0),
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 24),
+            // 标题
+            const Text(
+              '心探',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 4,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '探索内心的真实自我',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 32),
+            // 导航项
+            _buildSideNavItem(
+              index: 0,
+              icon: Icons.home_outlined,
+              activeIcon: Icons.home,
+              label: '首页',
+            ),
+            _buildSideNavItem(
+              index: 1,
+              icon: Icons.history_outlined,
+              activeIcon: Icons.history,
+              label: '历史',
+            ),
+            _buildSideNavItem(
+              index: 2,
+              icon: Icons.settings_outlined,
+              activeIcon: Icons.settings,
+              label: '设置',
+            ),
+            const Spacer(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSideNavItem({
+    required int index,
+    required IconData icon,
+    required IconData activeIcon,
+    required String label,
+  }) {
+    final isSelected = _currentIndex == index;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: GestureDetector(
+        onTap: () {
+          SoundService.instance.playTap();
+          if (!isSelected) {
+            setState(() => _currentIndex = index);
+          }
+        },
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: AppAnimations.fast,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? AppColors.neonCyan.withOpacity(0.15)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected
+                  ? AppColors.neonCyan.withOpacity(0.3)
+                  : Colors.transparent,
+              width: 1,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppColors.neonCyan.withOpacity(0.3),
+                      blurRadius: 12,
+                      spreadRadius: 2,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isSelected ? activeIcon : icon,
+                color: isSelected ? AppColors.neonCyan : AppColors.textMuted,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? AppColors.neonCyan : AppColors.textMuted,
+                  fontSize: 16,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -207,84 +400,144 @@ class _QuizTypeListPageState extends State<_QuizTypeListPage>
   @override
   Widget build(BuildContext context) {
     final quizTypes = QuizData.getAllQuizTypes();
+    final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
+    final maxWidth = ResponsiveUtils.getMaxContentWidth(context);
 
     return SafeArea(
-      child: Column(
-        children: [
-          // 顶部 Logo 区域
-          _buildHeader(),
-          // 测试列表
-          Expanded(
-            child: ScrollConfiguration(
-              behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-              child: ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                itemCount: quizTypes.length,
-                itemBuilder: (context, index) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _QuizTypeCard(
-                      quizType: quizTypes[index],
-                      index: index,
-                    ),
-                  );
-                },
+      bottom: false, // 不在底部添加 SafeArea padding，由底部导航栏的 SafeArea 处理
+      child: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: Column(
+            children: [
+              // 顶部 Logo 区域
+              _buildHeader(),
+              // 测试列表 - 使用 LayoutBuilder 获取可用空间并计算卡片高度
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final availableHeight = constraints.maxHeight;
+                    final cardSpacing = ResponsiveUtils.getCardSpacing(context);
+                    final listTopPadding = ResponsiveUtils.getListTopPadding(context);
+                    final listBottomPadding = ResponsiveUtils.getListBottomPadding(context);
+                    
+                    // 计算自适应卡片高度
+                    final itemCount = quizTypes.length;
+                    final totalSpacing = cardSpacing * (itemCount - 1) + listTopPadding + listBottomPadding;
+                    final calculatedCardHeight = (availableHeight - totalSpacing) / itemCount;
+                    // 约束卡片高度在70px-120px之间
+                    final cardHeight = calculatedCardHeight.clamp(70.0, 120.0);
+                    
+                    // 计算实际内容总高度
+                    final totalContentHeight = cardHeight * itemCount + totalSpacing;
+                    
+                    // 判断是否需要滚动
+                    final needsScroll = totalContentHeight > availableHeight;
+                    
+                    // 构建卡片列表
+                    final cardList = Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(height: listTopPadding),
+                        for (int index = 0; index < quizTypes.length; index++) ...[
+                          if (index > 0) SizedBox(height: cardSpacing),
+                          SizedBox(
+                            height: cardHeight,
+                            child: _QuizTypeCard(
+                              quizType: quizTypes[index],
+                              index: index,
+                              cardHeight: cardHeight,
+                            ),
+                          ),
+                        ],
+                        SizedBox(height: listBottomPadding),
+                      ],
+                    );
+                    
+                    // 当内容超出时使用 SingleChildScrollView
+                    if (needsScroll) {
+                      return ScrollConfiguration(
+                        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                          child: cardList,
+                        ),
+                      );
+                    }
+                    
+                    // 内容不超出时直接使用 Column
+                    return Padding(
+                      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                      child: cardList,
+                    );
+                  },
+                ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildHeader() {
     return AnimatedBuilder(
-      animation: _titleController,
+      animation: Listenable.merge([_logoController, _titleController]),
       builder: (context, child) {
-        final progress = _titleController.value;
-        // 让progress从-0.2到1.2循环，确保光带从左侧外到右侧外
-        final normalizedProgress = (progress * 1.4) % 1.4 - 0.2;
+        final pulse = sin(_logoPulse.value * 2 * pi);
+        final rotation = _logoRotation.value;
+        final gradientProgress = _titleController.value;
+        final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
+        
+        // 使用 ResponsiveUtils 动态计算头部元素尺寸
+        final titleSize = ResponsiveUtils.getHeaderTitleFontSize(context);
+        final subtitleSize = ResponsiveUtils.getHeaderSubtitleFontSize(context);
+        final verticalPadding = ResponsiveUtils.getHeaderVerticalPadding(context);
+        final spacing = ResponsiveUtils.getHeaderElementSpacing(context);
+        
+        // 呼吸效果参数
+        final glowIntensity = 0.3 + pulse * 0.2;
+        final scale = 1.0 + pulse * 0.02;
         
         return Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
+            verticalPadding,
+            horizontalPadding,
+            verticalPadding,
+          ),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [
-                AppColors.surface,
-                Color.lerp(AppColors.surface, AppColors.neonCyan, 0.15)!,
-                Color.lerp(AppColors.surface, AppColors.neonPurple, 0.18)!,
-                Color.lerp(AppColors.surface, AppColors.neonPink, 0.15)!,
-                AppColors.surface,
-              ],
-              stops: [
-                (normalizedProgress - 0.2).clamp(0.0, 1.0),
-                (normalizedProgress - 0.1).clamp(0.0, 1.0),
-                normalizedProgress.clamp(0.0, 1.0),
-                (normalizedProgress + 0.1).clamp(0.0, 1.0),
-                (normalizedProgress + 0.2).clamp(0.0, 1.0),
-              ],
-            ),
+            color: AppColors.surface,
           ),
-          child: Row(
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              // Logo 在左
-              _buildLogo(),
-              // 标题居中
-              Expanded(
-                child: Column(
-                  children: [
-                    // 主标题
-                    _buildSimpleTitle(progress),
-                    const SizedBox(height: 6),
-                    // 副标题
-                    _buildEnhancedSubtitle(progress, sin(progress * 2 * pi)),
-                  ],
+              // 背景装饰 - 流动的能量线
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _HeaderMysticPainter(
+                    progress: gradientProgress,
+                    pulse: pulse,
+                    rotation: rotation,
+                  ),
                 ),
               ),
-              // 右侧占位，保持标题居中
-              const SizedBox(width: 48),
+              // 主内容
+              Center(
+                child: Transform.scale(
+                  scale: scale,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 主标题 - 呼吸发光效果
+                      _buildBreathingTitle(titleSize, glowIntensity, gradientProgress),
+                      SizedBox(height: spacing),
+                      // 副标题 - 渐变色
+                      _buildBreathingSubtitle(subtitleSize, pulse, gradientProgress),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         );
@@ -292,245 +545,256 @@ class _QuizTypeListPageState extends State<_QuizTypeListPage>
     );
   }
 
-  Widget _buildLogo() {
-    return AnimatedBuilder(
-      animation: _logoController,
-      builder: (context, child) {
-        // 呼吸效果 - 使用sin波形实现平滑的缩放
-        final breathValue = sin(_logoPulse.value * 2 * pi);
-        final scale = 1.0 + breathValue * 0.15; // 0.85 - 1.15 的缩放范围
-        final glowIntensity = 0.5 + breathValue * 0.3; // 光晕强度跟随呼吸
-        
-        return Transform.scale(
-          scale: scale,
-          child: Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.neonCyan.withOpacity(0.9),
-                  AppColors.neonPurple.withOpacity(0.9),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                // 内层青色光晕
-                BoxShadow(
-                  color: AppColors.neonCyan.withOpacity(glowIntensity),
-                  blurRadius: 18 + breathValue * 15,
-                  spreadRadius: 2 + breathValue * 4,
-                ),
-                // 中层紫色光晕
-                BoxShadow(
-                  color: AppColors.neonPurple.withOpacity(glowIntensity * 0.8),
-                  blurRadius: 28 + breathValue * 20,
-                  spreadRadius: 4 + breathValue * 5,
-                ),
-                // 外层粉色光晕
-                BoxShadow(
-                  color: AppColors.neonPink.withOpacity(glowIntensity * 0.6),
-                  blurRadius: 38 + breathValue * 25,
-                  spreadRadius: 6 + breathValue * 6,
-                ),
-              ],
+  // 呼吸感主标题 - 带流动渐变
+  Widget _buildBreathingTitle(double fontSize, double glowIntensity, double gradientProgress) {
+    return ShaderMask(
+      shaderCallback: (bounds) => LinearGradient(
+        begin: Alignment(-1.0 + gradientProgress * 2, 0),
+        end: Alignment(1.0 + gradientProgress * 2, 0),
+        colors: const [
+          AppColors.neonCyan,
+          AppColors.neonPurple,
+          AppColors.neonPink,
+          AppColors.neonCyan,
+        ],
+        stops: const [0.0, 0.33, 0.66, 1.0],
+      ).createShader(bounds),
+      child: Text(
+        '心探',
+        style: TextStyle(
+          fontSize: fontSize,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+          letterSpacing: 8,
+          shadows: [
+            Shadow(
+              color: AppColors.neonCyan.withOpacity(glowIntensity),
+              blurRadius: 15 + glowIntensity * 10,
             ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // 脉冲边框
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.5 + breathValue * 0.3),
-                      width: 1.5 + breathValue * 0.5,
-                    ),
-                  ),
-                ),
-                // 中心图标，随呼吸轻微缩放
-                Transform.scale(
-                  scale: 1.0 + breathValue * 0.08,
-                  child: CustomPaint(
-                    size: const Size(24, 24),
-                    painter: _LogoPainter(),
-                  ),
-                ),
-              ],
+            Shadow(
+              color: AppColors.neonPurple.withOpacity(glowIntensity * 0.8),
+              blurRadius: 25 + glowIntensity * 15,
             ),
-          ),
-        );
-      },
+            Shadow(
+              color: AppColors.neonPink.withOpacity(glowIntensity * 0.6),
+              blurRadius: 35 + glowIntensity * 20,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  // 简化的主标题（不再单独渐变）
-  Widget _buildSimpleTitle(double progress) {
-    final pulse = sin(progress * 2 * pi);
-    
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        // 底层发光边框
-        Text(
-          '心探',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 2,
-            foreground: Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 4
-              ..color = AppColors.neonCyan.withOpacity(0.3 + pulse * 0.2)
-              ..maskFilter = MaskFilter.blur(BlurStyle.normal, 8 + pulse * 4),
-          ),
-        ),
-        // 主体文字（纯白色）
-        const Text(
-          '心探',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            letterSpacing: 2,
-            shadows: [
-              Shadow(
-                color: Colors.white,
-                blurRadius: 10,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  // 增强的副标题
-  Widget _buildEnhancedSubtitle(double progress, double pulse) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        // 底层光晕
-        Text(
-          '探索内心的真实自我',
-          style: TextStyle(
-            fontSize: 11,
-            letterSpacing: 1.5,
-            foreground: Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 3
-              ..color = AppColors.neonCyan.withOpacity(0.3 + pulse * 0.15)
-              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
-          ),
-        ),
-        // 主体文字
-        Opacity(
-          opacity: 0.85 + pulse * 0.15,
-          child: ShaderMask(
-            shaderCallback: (bounds) => LinearGradient(
-              colors: [
-                AppColors.textSecondary,
-                AppColors.neonCyan.withOpacity(0.9),
-                AppColors.neonPurple.withOpacity(0.8),
-                AppColors.textSecondary,
-              ],
-              stops: [
-                0.0,
-                0.3 + sin(progress * 3 * pi) * 0.2,
-                0.6 + cos(progress * 3 * pi) * 0.2,
-                1.0,
-              ],
-            ).createShader(bounds),
-            child: const Text(
-              '探索内心的真实自我',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.white,
-                letterSpacing: 1.5,
-                fontWeight: FontWeight.w500,
-              ),
+  // 呼吸感副标题 - 带流动渐变
+  Widget _buildBreathingSubtitle(double fontSize, double pulse, double gradientProgress) {
+    final opacity = 0.7 + pulse * 0.15;
+    return ShaderMask(
+      shaderCallback: (bounds) => LinearGradient(
+        begin: Alignment(-1.5 + gradientProgress * 3, 0),
+        end: Alignment(1.5 + gradientProgress * 3, 0),
+        colors: [
+          AppColors.neonCyan.withOpacity(opacity),
+          AppColors.neonPurple.withOpacity(opacity),
+          AppColors.neonPink.withOpacity(opacity),
+          AppColors.neonCyan.withOpacity(opacity),
+        ],
+        stops: const [0.0, 0.33, 0.66, 1.0],
+      ).createShader(bounds),
+      child: Text(
+        '探索内心的真实自我',
+        style: TextStyle(
+          fontSize: fontSize,
+          color: Colors.white,
+          letterSpacing: 3.0,
+          fontWeight: FontWeight.w500,
+          shadows: [
+            Shadow(
+              color: AppColors.neonCyan.withOpacity(0.3 + pulse * 0.2),
+              blurRadius: 8 + pulse * 5,
             ),
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
-class _LogoPainter extends CustomPainter {
+
+// 标题栏玄幻背景绘制器
+class _HeaderMysticPainter extends CustomPainter {
+  final double progress;
+  final double pulse;
+  final double rotation;
+  
+  _HeaderMysticPainter({
+    required this.progress,
+    required this.pulse,
+    required this.rotation,
+  });
+  
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0
-      ..strokeCap = StrokeCap.round;
-
     final center = Offset(size.width / 2, size.height / 2);
-
-    // 绘制心形轮廓
-    final heartPath = Path();
-    // 左侧弧线
-    heartPath.moveTo(center.dx, center.dy + 6);
-    heartPath.cubicTo(
-      center.dx - 10, center.dy + 2,
-      center.dx - 8, center.dy - 8,
-      center.dx, center.dy - 4,
-    );
-    // 右侧弧线
-    heartPath.cubicTo(
-      center.dx + 8, center.dy - 8,
-      center.dx + 10, center.dy + 2,
-      center.dx, center.dy + 6,
-    );
+    final paint = Paint()..style = PaintingStyle.stroke;
     
-    canvas.drawPath(heartPath, paint);
-
-    // 绘制中心的问号（象征探索）
-    final questionPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
+    // 绘制两侧的能量弧线
+    _drawEnergyArcs(canvas, size, paint);
+    
+    // 绘制流动的粒子点
+    _drawFlowingParticles(canvas, size, paint);
+    
+    // 绘制装饰符文
+    _drawDecorativeRunes(canvas, size, paint);
+  }
+  
+  void _drawEnergyArcs(Canvas canvas, Size size, Paint paint) {
+    final center = Offset(size.width / 2, size.height / 2);
+    
+    // 左侧弧线
+    paint
       ..strokeWidth = 1.5
       ..strokeCap = StrokeCap.round;
-
-    final questionPath = Path();
-    questionPath.moveTo(center.dx - 2, center.dy - 3);
-    questionPath.quadraticBezierTo(
-      center.dx - 2, center.dy - 6,
-      center.dx + 1, center.dy - 6,
-    );
-    questionPath.quadraticBezierTo(
-      center.dx + 4, center.dy - 6,
-      center.dx + 4, center.dy - 3,
-    );
-    questionPath.quadraticBezierTo(
-      center.dx + 4, center.dy - 1,
-      center.dx + 1, center.dy,
-    );
-    questionPath.lineTo(center.dx + 1, center.dy + 1);
     
-    canvas.drawPath(questionPath, questionPaint);
-
-    // 问号下面的点
-    final dotPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(center.dx + 1, center.dy + 3), 1.2, dotPaint);
+    for (int i = 0; i < 3; i++) {
+      final offset = i * 15.0;
+      final opacity = (0.3 - i * 0.08 + pulse * 0.1).clamp(0.0, 1.0);
+      
+      paint.shader = LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.center,
+        colors: [
+          AppColors.neonCyan.withOpacity(opacity),
+          AppColors.neonPurple.withOpacity(opacity * 0.5),
+          Colors.transparent,
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width / 2, size.height));
+      
+      final path = Path();
+      path.moveTo(0, size.height * 0.3 + offset);
+      path.quadraticBezierTo(
+        size.width * 0.15,
+        size.height * 0.5,
+        size.width * 0.05,
+        size.height * 0.7 - offset,
+      );
+      canvas.drawPath(path, paint);
+    }
+    
+    // 右侧弧线
+    for (int i = 0; i < 3; i++) {
+      final offset = i * 15.0;
+      final opacity = (0.3 - i * 0.08 + pulse * 0.1).clamp(0.0, 1.0);
+      
+      paint.shader = LinearGradient(
+        begin: Alignment.centerRight,
+        end: Alignment.center,
+        colors: [
+          AppColors.neonPink.withOpacity(opacity),
+          AppColors.neonPurple.withOpacity(opacity * 0.5),
+          Colors.transparent,
+        ],
+      ).createShader(Rect.fromLTWH(size.width / 2, 0, size.width / 2, size.height));
+      
+      final path = Path();
+      path.moveTo(size.width, size.height * 0.3 + offset);
+      path.quadraticBezierTo(
+        size.width * 0.85,
+        size.height * 0.5,
+        size.width * 0.95,
+        size.height * 0.7 - offset,
+      );
+      canvas.drawPath(path, paint);
+    }
   }
-
+  
+  void _drawFlowingParticles(Canvas canvas, Size size, Paint paint) {
+    paint.shader = null;
+    paint.style = PaintingStyle.fill;
+    
+    // 左侧粒子
+    for (int i = 0; i < 5; i++) {
+      final t = (progress + i * 0.2) % 1.0;
+      final x = size.width * 0.05 + t * size.width * 0.15;
+      final y = size.height * 0.3 + sin(t * pi) * size.height * 0.3;
+      final opacity = sin(t * pi) * (0.5 + pulse * 0.3);
+      final radius = 2.0 + pulse * 1.5;
+      
+      paint.color = AppColors.neonCyan.withOpacity(opacity.clamp(0.0, 1.0));
+      canvas.drawCircle(Offset(x, y), radius, paint);
+    }
+    
+    // 右侧粒子
+    for (int i = 0; i < 5; i++) {
+      final t = (progress + i * 0.2) % 1.0;
+      final x = size.width * 0.95 - t * size.width * 0.15;
+      final y = size.height * 0.3 + sin(t * pi) * size.height * 0.3;
+      final opacity = sin(t * pi) * (0.5 + pulse * 0.3);
+      final radius = 2.0 + pulse * 1.5;
+      
+      paint.color = AppColors.neonPink.withOpacity(opacity.clamp(0.0, 1.0));
+      canvas.drawCircle(Offset(x, y), radius, paint);
+    }
+  }
+  
+  void _drawDecorativeRunes(Canvas canvas, Size size, Paint paint) {
+    paint.style = PaintingStyle.stroke;
+    paint.strokeWidth = 1.0;
+    
+    // 左侧小符文
+    final leftRuneCenter = Offset(size.width * 0.08, size.height * 0.5);
+    final runeSize = 8.0 + pulse * 3;
+    paint.color = AppColors.neonCyan.withOpacity(0.4 + pulse * 0.2);
+    
+    // 绘制小三角
+    final leftPath = Path();
+    for (int i = 0; i < 3; i++) {
+      final angle = rotation * 0.5 + (i / 3) * 2 * pi - pi / 2;
+      final x = leftRuneCenter.dx + runeSize * cos(angle);
+      final y = leftRuneCenter.dy + runeSize * sin(angle);
+      if (i == 0) {
+        leftPath.moveTo(x, y);
+      } else {
+        leftPath.lineTo(x, y);
+      }
+    }
+    leftPath.close();
+    canvas.drawPath(leftPath, paint);
+    
+    // 右侧小符文
+    final rightRuneCenter = Offset(size.width * 0.92, size.height * 0.5);
+    paint.color = AppColors.neonPink.withOpacity(0.4 + pulse * 0.2);
+    
+    final rightPath = Path();
+    for (int i = 0; i < 3; i++) {
+      final angle = -rotation * 0.5 + (i / 3) * 2 * pi + pi / 2;
+      final x = rightRuneCenter.dx + runeSize * cos(angle);
+      final y = rightRuneCenter.dy + runeSize * sin(angle);
+      if (i == 0) {
+        rightPath.moveTo(x, y);
+      } else {
+        rightPath.lineTo(x, y);
+      }
+    }
+    rightPath.close();
+    canvas.drawPath(rightPath, paint);
+  }
+  
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _HeaderMysticPainter oldDelegate) {
+    return oldDelegate.progress != progress || 
+           oldDelegate.pulse != pulse ||
+           oldDelegate.rotation != rotation;
+  }
 }
+
 class _QuizTypeCard extends StatefulWidget {
   final QuizType quizType;
   final int index;
+  final double? cardHeight;
 
   const _QuizTypeCard({
     required this.quizType,
     required this.index,
+    this.cardHeight,
   });
 
   @override
@@ -634,6 +898,19 @@ class _QuizTypeCardState extends State<_QuizTypeCard>
       0,
       (sum, category) => sum + category.items.length,
     );
+    
+    // 使用传入的卡片高度或根据屏幕高度计算
+    final cardHeight = widget.cardHeight ?? 100.0;
+    final scaleFactor = ResponsiveUtils.getCardScaleFactor(cardHeight);
+    
+    // 根据卡片高度动态调整内部元素尺寸
+    final cardPadding = (14.0 * scaleFactor).clamp(10.0, 16.0);
+    final iconSize = ResponsiveUtils.getAdaptiveIconSize(cardHeight);
+    final iconInnerSize = (26.0 * scaleFactor).clamp(20.0, 28.0);
+    final titleSize = ResponsiveUtils.getAdaptiveTitleFontSize(cardHeight);
+    final descSize = ResponsiveUtils.getAdaptiveDescFontSize(cardHeight);
+    final spacing = (10.0 * scaleFactor).clamp(6.0, 12.0);
+    final contentSpacing = (5.0 * scaleFactor).clamp(2.0, 6.0);
 
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -642,7 +919,7 @@ class _QuizTypeCardState extends State<_QuizTypeCard>
         child: NeonCard(
           borderColor: cardColor,
           onTap: () => _navigateToQuizDetail(context),
-          padding: const EdgeInsets.all(14),
+          padding: EdgeInsets.all(cardPadding),
           child: Row(
             children: [
               // Icon container with pulse effect
@@ -650,19 +927,19 @@ class _QuizTypeCardState extends State<_QuizTypeCard>
                 animation: _pulseAnimation,
                 builder: (context, child) {
                   return Container(
-                    width: 48,
-                    height: 48,
+                    width: iconSize,
+                    height: iconSize,
                     decoration: BoxDecoration(
-                      color: cardColor.withOpacity(0.15),
+                      color: cardColor.withOpacity(0.25),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: cardColor.withOpacity(0.3 + _pulseAnimation.value * 0.2),
-                        width: 1,
+                        color: cardColor.withOpacity(0.5 + _pulseAnimation.value * 0.2),
+                        width: 1.5,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: cardColor.withOpacity(0.2 + _pulseAnimation.value * 0.3),
-                          blurRadius: 8 + _pulseAnimation.value * 8,
+                          color: cardColor.withOpacity(0.3 + _pulseAnimation.value * 0.3),
+                          blurRadius: 10 + _pulseAnimation.value * 8,
                           spreadRadius: _pulseAnimation.value * 3,
                         ),
                       ],
@@ -670,12 +947,12 @@ class _QuizTypeCardState extends State<_QuizTypeCard>
                     child: Icon(
                       _getQuizIcon(),
                       color: cardColor,
-                      size: 26,
+                      size: iconInnerSize,
                     ),
                   );
                 },
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: spacing),
               // Content
               Expanded(
                 child: Column(
@@ -683,23 +960,23 @@ class _QuizTypeCardState extends State<_QuizTypeCard>
                   children: [
                     Text(
                       widget.quizType.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.textPrimary,
-                        fontSize: 16,
+                        fontSize: titleSize,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       widget.quizType.description,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.textSecondary,
-                        fontSize: 12,
+                        fontSize: descSize,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: contentSpacing),
                     Row(
                       children: [
                         _buildInfoChip(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
 import '../../core/theme/app_colors.dart';
@@ -8,7 +9,7 @@ import '../../core/services/path_manager.dart';
 import '../../core/services/sound_service.dart';
 import '../../core/utils/advanced_screenshot_utils.dart';
 import '../providers/settings_provider.dart';
-import '../providers/report_provider.dart';
+
 import '../widgets/neon_card.dart';
 import '../widgets/custom_dialog.dart';
 import '../widgets/mystic_background.dart';
@@ -119,72 +120,6 @@ class _SettingsPageState extends State<SettingsPage>
     }
   }
 
-  void _confirmClearAllData() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-            color: AppColors.error.withOpacity(0.3),
-          ),
-        ),
-        title: Row(
-          children: [
-            Icon(Icons.warning_amber, color: AppColors.error),
-            const SizedBox(width: 8),
-            const Text(
-              '确认清除',
-              style: TextStyle(color: AppColors.textPrimary),
-            ),
-          ],
-        ),
-        content: const Text(
-          '此操作将删除所有测试记录，且无法恢复确定要继续吗？',
-          style: TextStyle(color: AppColors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              SoundService.instance.playClick();
-              Navigator.pop(context);
-            },
-            child: Text(
-              '取消',
-              style: TextStyle(color: AppColors.textMuted),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              SoundService.instance.playClick();
-              Navigator.pop(context);
-              _clearAllData();
-            },
-            child: Text(
-              '清除所有数据',
-              style: TextStyle(color: AppColors.error),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-
-  Future<void> _clearAllData() async {
-    final reportProvider = context.read<ReportProvider>();
-    final success = await reportProvider.deleteAllReports();
-    
-    if (mounted) {
-      if (success) {
-        ToastUtils.showSuccess(context, '所有数据已清除');
-      } else {
-        ToastUtils.showError(context, '清除数据失败，请重试试');
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -213,11 +148,11 @@ class _SettingsPageState extends State<SettingsPage>
                 child: ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    _buildAnimatedItem(0, _buildScreenshotSection(provider)),
+                    _buildAnimatedItem(0, _buildContactSection()),
                     const SizedBox(height: 20),
-                    _buildAnimatedItem(1, _buildPathSection()),
+                    _buildAnimatedItem(1, _buildScreenshotSection(provider)),
                     const SizedBox(height: 20),
-                    _buildAnimatedItem(2, _buildDataSection()),
+                    _buildAnimatedItem(2, _buildPathSection()),
                     const SizedBox(height: 20),
                     _buildAnimatedItem(3, _buildAboutSection()),
                   ],
@@ -469,9 +404,9 @@ class _SettingsPageState extends State<SettingsPage>
       ],
     );
   }
-  Widget _buildDataSection() {
+  Widget _buildContactSection() {
     return NeonCard(
-      borderColor: AppColors.error,
+      borderColor: AppColors.neonGreen,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -479,96 +414,234 @@ class _SettingsPageState extends State<SettingsPage>
           Row(
             children: [
               Icon(
-                Icons.storage_outlined,
-                color: AppColors.error,
+                Icons.card_giftcard,
+                color: AppColors.neonGreen,
                 size: 20,
               ),
               const SizedBox(width: 8),
               Text(
-                '数据管理',
+                '福利专区',
                 style: TextStyle(
-                  color: AppColors.error,
+                  color: AppColors.neonGreen,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [AppColors.neonPink, AppColors.neonPurple],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Text(
+                  '免费',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ],
           ),
+          const SizedBox(height: 12),
+          // 福利提示
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.neonPurple.withOpacity(0.15),
+                  AppColors.neonPink.withOpacity(0.1),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppColors.neonPurple.withOpacity(0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.auto_awesome,
+                  color: AppColors.neonPink,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '🎁 添加好友，领取更多免费软件',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '定期更新 · 永久免费 · 专属福利',
+                        style: TextStyle(
+                          color: AppColors.neonPink,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 16),
-          _buildActionTile(
-            title: '清除所有数据',
-            subtitle: '删除所有测试记录，此操作不可恢复',
-            icon: Icons.delete_forever_outlined,
-            color: AppColors.error,
-            onTap: _confirmClearAllData,
+          _buildContactTile(
+            icon: Icons.chat_bubble_outline,
+            title: '微信',
+            value: 'ntr1763561812',
+            color: AppColors.neonGreen,
+            hint: '点击复制，添加好友',
+          ),
+          const SizedBox(height: 12),
+          _buildContactTile(
+            icon: Icons.message_outlined,
+            title: 'QQ',
+            value: '1763561812',
+            color: AppColors.neonBlue,
+            hint: '点击复制，添加好友',
+          ),
+          const SizedBox(height: 16),
+          // 底部提示
+          Row(
+            children: [
+              Icon(
+                Icons.verified_user_outlined,
+                color: AppColors.textMuted,
+                size: 14,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '问题反馈 · 功能建议 · 更多福利，欢迎随时联系',
+                  style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
-  Widget _buildActionTile({
-    required String title,
-    required String subtitle,
+
+  Widget _buildContactTile({
     required IconData icon,
+    required String title,
+    required String value,
     required Color color,
-    required VoidCallback onTap,
+    String? hint,
   }) {
     return InkWell(
       onTap: () {
         SoundService.instance.playClick();
-        onTap();
+        _copyToClipboard(value, title);
       },
       borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withOpacity(0.4)),
+        ),
         child: Row(
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 20,
-              ),
+              child: Icon(icon, color: color, size: 20),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 12,
+                        ),
+                      ),
+                      if (hint != null) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          hint,
+                          style: TextStyle(
+                            color: color.withOpacity(0.7),
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    subtitle,
+                    value,
                     style: TextStyle(
-                      color: AppColors.textMuted,
-                      fontSize: 13,
+                      color: AppColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ],
               ),
             ),
-            Icon(
-              Icons.chevron_right,
-              color: AppColors.textMuted,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.copy, color: color, size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    '复制',
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
     );
   }
+
+  void _copyToClipboard(String text, String label) {
+    Clipboard.setData(ClipboardData(text: text));
+    ToastUtils.showSuccess(context, '$label已复制');
+  }
+
   Widget _buildAboutSection() {
     return NeonCard(
       borderColor: AppColors.neonPurple,

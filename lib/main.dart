@@ -6,6 +6,7 @@ import 'app/app.dart';
 import 'core/services/sound_service.dart';
 import 'data/datasources/local_database.dart';
 import 'data/datasources/preferences_datasource.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
