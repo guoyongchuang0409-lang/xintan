@@ -43,26 +43,9 @@ dev_dependencies:
   
   # Property-Based Testing
   glados: ^1.1.7
-  
-  # Icon Generator
-  flutter_launcher_icons: ^0.14.1
 
 flutter:
   uses-material-design: true
   
   assets:
     - assets/sounds/
-
-flutter_launcher_icons:
-  android: true
-  ios: true
-  windows:
-    generate: true
-    image_path: "assets/icon/app_icon.png"
-    icon_size: 48
-  macos:
-    generate: true
-    image_path: "assets/icon/app_icon.png"
-  image_path: "assets/icon/app_icon.png"
-  adaptive_icon_background: "#1a1a2e"
-  adaptive_icon_foreground: "assets/icon/app_icon.png"

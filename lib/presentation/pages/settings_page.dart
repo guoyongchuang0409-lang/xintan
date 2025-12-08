@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 import 'dart:io';
 import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_animations.dart';
 import '../../core/utils/toast_utils.dart';
 import '../../core/services/path_manager.dart';
 import '../../core/services/sound_service.dart';
 import '../../core/utils/advanced_screenshot_utils.dart';
-import '../providers/settings_provider.dart';
 
 import '../widgets/neon_card.dart';
 import '../widgets/custom_dialog.dart';
@@ -43,7 +40,7 @@ class _SettingsPageState extends State<SettingsPage>
     );
     
     // 为每个组件创建交错动画
-    _itemAnimations = List.generate(4, (index) {
+    _itemAnimations = List.generate(3, (index) {
       final start = 0.1 + (index * 0.15);
       final end = start + 0.4;
       return Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -60,9 +57,8 @@ class _SettingsPageState extends State<SettingsPage>
     
     _animationController.forward();
     
-    // Load settings when page opens
+    // Load current path when page opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<SettingsProvider>().loadSettings();
       _loadCurrentPath();
     });
   }
@@ -141,24 +137,18 @@ class _SettingsPageState extends State<SettingsPage>
         secondaryColor: AppColors.neonPink.withOpacity(0.5),
         child: FadeTransition(
           opacity: _fadeAnimation,
-          child: Consumer<SettingsProvider>(
-            builder: (context, provider, child) {
-              return ScrollConfiguration(
-                behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-                child: ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    _buildAnimatedItem(0, _buildContactSection()),
-                    const SizedBox(height: 20),
-                    _buildAnimatedItem(1, _buildScreenshotSection(provider)),
-                    const SizedBox(height: 20),
-                    _buildAnimatedItem(2, _buildPathSection()),
-                    const SizedBox(height: 20),
-                    _buildAnimatedItem(3, _buildAboutSection()),
-                  ],
-                ),
-              );
-            },
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _buildAnimatedItem(0, _buildContactSection()),
+                const SizedBox(height: 20),
+                _buildAnimatedItem(1, _buildPathSection()),
+                const SizedBox(height: 20),
+                _buildAnimatedItem(2, _buildAboutSection()),
+              ],
+            ),
           ),
         ),
       ),
@@ -175,47 +165,6 @@ class _SettingsPageState extends State<SettingsPage>
           end: Offset.zero,
         ).animate(_itemAnimations[index]),
         child: child,
-      ),
-    );
-  }
-
-  Widget _buildScreenshotSection(SettingsProvider provider) {
-    return NeonCard(
-      borderColor: AppColors.neonCyan,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.camera_alt_outlined,
-                color: AppColors.neonCyan,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '截图设置',
-                style: TextStyle(
-                  color: AppColors.neonCyan,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildSwitchTile(
-            title: '自己测动保存截图',
-            subtitle: '生成报告时自己测动保存截图到相册',
-            value: provider.autoSaveScreenshot,
-            onChanged: (value) {
-              SoundService.instance.playSwitch();
-              provider.toggleAutoSaveScreenshot();
-            },
-            color: AppColors.neonCyan,
-          ),
-        ],
       ),
     );
   }
@@ -361,49 +310,6 @@ class _SettingsPageState extends State<SettingsPage>
     );
   }
 
-  Widget _buildSwitchTile({
-    required String title,
-    required String subtitle,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-    required Color color,
-  }) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  color: AppColors.textMuted,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Switch(
-          value: value,
-          onChanged: onChanged,
-          activeColor: color,
-          activeTrackColor: color.withOpacity(0.3),
-          inactiveThumbColor: AppColors.textMuted,
-          inactiveTrackColor: AppColors.surface,
-        ),
-      ],
-    );
-  }
   Widget _buildContactSection() {
     return NeonCard(
       borderColor: AppColors.neonGreen,
