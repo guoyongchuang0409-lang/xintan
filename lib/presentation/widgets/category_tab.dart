@@ -250,7 +250,7 @@ class _CompactCategoryTab extends StatelessWidget {
       },
       child: AnimatedContainer(
         duration: AppAnimations.fast,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected ? color.withOpacity(0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
@@ -269,13 +269,17 @@ class _CompactCategoryTab extends StatelessWidget {
               : null,
         ),
         alignment: Alignment.center,
-        child: Text(
-          name,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: isSelected ? color : AppColors.textSecondary,
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            name,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            style: TextStyle(
+              color: isSelected ? color : AppColors.textSecondary,
+              fontSize: 13,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            ),
           ),
         ),
       ),
