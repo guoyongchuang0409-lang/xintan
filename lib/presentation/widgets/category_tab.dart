@@ -141,17 +141,20 @@ class CategoryTabBar extends StatefulWidget {
 
 class _CategoryTabBarState extends State<CategoryTabBar> {
   late ScrollController _scrollController;
+  static const int _visibleCount = 4; // 每次显示4个标签
 
   @override
   void initState() {
     super.initState();
     _scrollController = ScrollController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToSelected();
+    });
   }
 
   @override
   void didUpdateWidget(CategoryTabBar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 当选中项改变时，滚动到可见位置
     if (widget.selectedIndex != oldWidget.selectedIndex) {
       _scrollToSelected();
     }
@@ -160,17 +163,12 @@ class _CategoryTabBarState extends State<CategoryTabBar> {
   void _scrollToSelected() {
     if (!_scrollController.hasClients) return;
     
-    // 估算每个标签的宽度（0像素
-    final targetOffset = widget.selectedIndex * 72.0;
+    final itemWidth = _scrollController.position.viewportDimension / _visibleCount;
+    final targetOffset = widget.selectedIndex * itemWidth - itemWidth * 1.5;
     final maxScroll = _scrollController.position.maxScrollExtent;
-    final viewportWidth = _scrollController.position.viewportDimension;
-    
-    // 计算目标滚动位置，使选中项居中
-    var scrollTo = targetOffset - (viewportWidth / 2) + 40;
-    scrollTo = scrollTo.clamp(0.0, maxScroll);
     
     _scrollController.animateTo(
-      scrollTo,
+      targetOffset.clamp(0.0, maxScroll),
       duration: AppAnimations.normal,
       curve: AppAnimations.defaultCurve,
     );
@@ -185,7 +183,7 @@ class _CategoryTabBarState extends State<CategoryTabBar> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 52,
+      height: 56,
       decoration: BoxDecoration(
         color: AppColors.surface.withOpacity(0.5),
         border: Border(
@@ -195,33 +193,35 @@ class _CategoryTabBarState extends State<CategoryTabBar> {
           ),
         ),
       ),
-      child: GestureDetector(
-        // 确保手势不被子组件拦
-        behavior: HitTestBehavior.translucent,
-        child: ScrollConfiguration(
-          behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-          child: SingleChildScrollView(
-            controller: _scrollController,
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(
-              parent: AlwaysScrollableScrollPhysics(),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: List.generate(widget.categories.length, (index) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: _CompactCategoryTab(
-                    name: widget.categories[index],
-                    isSelected: index == widget.selectedIndex,
-                    selectedColor: widget.selectedColor,
-                    onTap: () => widget.onCategorySelected?.call(index),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final itemWidth = constraints.maxWidth / _visibleCount;
+          
+          return ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+            child: ListView.builder(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: widget.categories.length,
+              itemBuilder: (context, index) {
+                return SizedBox(
+                  width: itemWidth,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: _CompactCategoryTab(
+                      name: widget.categories[index],
+                      isSelected: index == widget.selectedIndex,
+                      selectedColor: widget.selectedColor,
+                      onTap: () => widget.onCategorySelected?.call(index),
+                    ),
                   ),
                 );
-              }),
+              },
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -268,8 +268,10 @@ class _CompactCategoryTab extends StatelessWidget {
                 ]
               : null,
         ),
+        alignment: Alignment.center,
         child: Text(
           name,
+          textAlign: TextAlign.center,
           style: TextStyle(
             color: isSelected ? color : AppColors.textSecondary,
             fontSize: 13,

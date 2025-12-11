@@ -73,18 +73,15 @@ class _ReportTableState extends State<ReportTable>
     switch (level) {
       case RatingLevel.sss:
         return AppColors.ratingSSS;
-      case RatingLevel.ss:
-        return AppColors.ratingSS;
       case RatingLevel.s:
         return AppColors.ratingS;
-      case RatingLevel.q:
-        return AppColors.ratingQ;
       case RatingLevel.n:
         return AppColors.ratingN;
-      case RatingLevel.w:
-        return AppColors.ratingW;
     }
   }
+  
+  // 只显示SSS和S
+  List<RatingLevel> get _displayLevels => [RatingLevel.sss, RatingLevel.s];
 
   @override
   Widget build(BuildContext context) {
@@ -173,7 +170,7 @@ class _ReportTableState extends State<ReportTable>
               textAlign: TextAlign.center,
             ),
           ),
-          ...RatingLevel.values.map((level) {
+          ..._displayLevels.map((level) {
             return Expanded(
               child: Text(
                 level.code,
@@ -220,7 +217,7 @@ class _ReportTableState extends State<ReportTable>
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          ...RatingLevel.values.map((level) {
+          ..._displayLevels.map((level) {
             final count = stats.levelCounts[level] ?? 0;
             final percentage = stats.levelPercentages[level] ?? 0.0;
             return Expanded(

@@ -318,6 +318,7 @@ class _MysticLoadingDialogState extends State<_MysticLoadingDialog>
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 1,
+                decoration: TextDecoration.none,
               ),
               textAlign: TextAlign.center,
             ),
@@ -549,6 +550,7 @@ class _MysticConfirmDialogState extends State<_MysticConfirmDialog>
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.5,
+                decoration: TextDecoration.none,
               ),
             ),
           ),
@@ -565,6 +567,7 @@ class _MysticConfirmDialogState extends State<_MysticConfirmDialog>
         fontSize: 14,
         height: 1.6,
         letterSpacing: 0.3,
+        decoration: TextDecoration.none,
       ),
     );
   }
@@ -750,6 +753,7 @@ class _MysticInfoDialogState extends State<_MysticInfoDialog>
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.5,
+                decoration: TextDecoration.none,
               ),
             ),
           ),
@@ -766,6 +770,7 @@ class _MysticInfoDialogState extends State<_MysticInfoDialog>
         fontSize: 14,
         height: 1.6,
         letterSpacing: 0.3,
+        decoration: TextDecoration.none,
       ),
     );
   }
@@ -889,6 +894,7 @@ class _MysticButtonState extends State<_MysticButton>
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.5,
+                    decoration: TextDecoration.none,
                     shadows: widget.isOutlined ? null : [
                       const Shadow(
                         color: Colors.black26,

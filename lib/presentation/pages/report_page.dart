@@ -1159,18 +1159,12 @@ class _ReportPageState extends State<ReportPage>
 
   Color _getRatingColor(RatingLevel rating) {
     switch (rating) {
+      case RatingLevel.sss:
+        return AppColors.ratingSSS;
+      case RatingLevel.s:
+        return AppColors.ratingS;
       case RatingLevel.n:
         return AppColors.ratingN;
-      case RatingLevel.q:
-        return AppColors.ratingQ;
-      case RatingLevel.s:
-        return AppColors.neonCyan;
-      case RatingLevel.ss:
-        return AppColors.neonPurple;
-      case RatingLevel.sss:
-        return AppColors.neonGreen;
-      case RatingLevel.w:
-        return AppColors.textMuted;
     }
   }
 
@@ -1645,16 +1639,10 @@ class _ReportPageState extends State<ReportPage>
     switch (level) {
       case RatingLevel.sss:
         return '你对测试中的大部分项目表现出强烈的兴趣和热情。这表明你是一个开放、积极探索的人，愿意尝试新事物。';
-      case RatingLevel.ss:
-        return '你对测试中的许多项目持积极态度。这说明你有较强的好奇心，同时也保持着一定的理性判断。';
       case RatingLevel.s:
-        return '你对测试中的项目持中立态度居多。这表明你是一个理性、客观的人，不会轻易被情绪左右。';
-      case RatingLevel.q:
-        return '你对一些项目虽然不太喜欢，但仍愿意尝试。这说明你有较强的适应能力和包容心。';
+        return '你对测试中的项目持积极态度。这说明你有较强的好奇心，同时也保持着一定的理性判断。';
       case RatingLevel.n:
-        return '你对测试中的许多项目持保守态度。这表明你有明确的底线和原则，知道自己想要什么。';
-      case RatingLevel.w:
-        return '你对许多项目还不太确定自己的态度。这可能意味着你还在探索和了解自己的过程中。';
+        return '你对测试中的许多项目选择跳过。这表明你有明确的底线和原则，知道自己想要什么。';
     }
   }
 

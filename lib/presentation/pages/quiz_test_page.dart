@@ -434,48 +434,26 @@ class _QuizTestPageState extends State<QuizTestPage>
     switch (level) {
       case RatingLevel.sss:
         return AppColors.ratingSSS;
-      case RatingLevel.ss:
-        return AppColors.ratingSS;
       case RatingLevel.s:
         return AppColors.ratingS;
-      case RatingLevel.q:
-        return AppColors.ratingQ;
       case RatingLevel.n:
         return AppColors.ratingN;
-      case RatingLevel.w:
-        return AppColors.ratingW;
     }
   }
 
   // 新的评分等级定义：更清晰易懂
   static const _ratingLabels = {
-    RatingLevel.sss: '超爱',
-    RatingLevel.ss: '喜欢',
+    RatingLevel.sss: '特别喜欢',
     RatingLevel.s: '可以',
-    RatingLevel.q: '勉强',
-    RatingLevel.n: '拒绝',
-    RatingLevel.w: '不懂',
+    RatingLevel.n: '跳过',
   };
 
   Widget _buildRatingButtons(String itemId, RatingLevel? selectedRating, Color quizColor) {
-    // 分成两行：第一行正面评价，第二行负中性评
-    final firstRow = [RatingLevel.sss, RatingLevel.ss, RatingLevel.s];
-    final secondRow = [RatingLevel.q, RatingLevel.n, RatingLevel.w];
-
-    return Column(
-      children: [
-        Row(
-          children: firstRow.map((level) => 
-            _buildSingleRatingButton(itemId, level, selectedRating)
-          ).toList(),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: secondRow.map((level) => 
-            _buildSingleRatingButton(itemId, level, selectedRating)
-          ).toList(),
-        ),
-      ],
+    // 一行显示3个选项
+    return Row(
+      children: RatingLevel.values.map((level) => 
+        _buildSingleRatingButton(itemId, level, selectedRating)
+      ).toList(),
     );
   }
 

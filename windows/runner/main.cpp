@@ -26,7 +26,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   FlutterWindow window(project);
   Win32Window::Point origin(200, 50);
-  Win32Window::Size size(420, 800);
+  Win32Window::Size size(490, 950);
   if (!window.Create(L"心探", origin, size)) {
     return EXIT_FAILURE;
   }

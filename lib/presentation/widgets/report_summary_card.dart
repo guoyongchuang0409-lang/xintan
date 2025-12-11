@@ -161,16 +161,10 @@ class ReportSummaryCard extends StatelessWidget {
     switch (rating) {
       case RatingLevel.n:
         return AppColors.textMuted;
-      case RatingLevel.q:
-        return AppColors.neonCyan;
       case RatingLevel.s:
         return AppColors.neonPurple;
-      case RatingLevel.ss:
-        return AppColors.neonGreen;
       case RatingLevel.sss:
         return AppColors.neonPink;
-      case RatingLevel.w:
-        return AppColors.textMuted.withOpacity(0.6);
     }
   }
 }

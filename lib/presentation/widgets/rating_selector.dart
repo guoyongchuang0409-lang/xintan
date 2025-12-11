@@ -19,16 +19,10 @@ class RatingSelector extends StatelessWidget {
     switch (level) {
       case RatingLevel.sss:
         return AppColors.ratingSSS;
-      case RatingLevel.ss:
-        return AppColors.ratingSS;
       case RatingLevel.s:
         return AppColors.ratingS;
-      case RatingLevel.q:
-        return AppColors.ratingQ;
       case RatingLevel.n:
         return AppColors.ratingN;
-      case RatingLevel.w:
-        return AppColors.ratingW;
     }
   }
 

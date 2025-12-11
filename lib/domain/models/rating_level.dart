@@ -1,10 +1,7 @@
 ﻿enum RatingLevel {
-  sss('SSS', '非常喜欢', '🖤', 'SSS'),
-  ss('SS', '喜欢', '💜', 'SS'),
-  s('S', '无所谓', '💚', 'S'),
-  q('Q', '不喜欢但会做', '💙', 'Q'),
-  n('N', '绝不', '❤️', 'N'),
-  w('W', '未知', '⚪', 'W');
+  sss('SR', '特别喜欢', '🖤', 'SR'),
+  s('S', '可以', '💚', 'S'),
+  n('N', '跳过', '⚪', 'N');
 
   final String code;
   final String description;
@@ -18,7 +15,10 @@
   static RatingLevel fromJson(String code) {
     return RatingLevel.values.firstWhere(
       (level) => level.code == code,
-      orElse: () => RatingLevel.w,
+      orElse: () => RatingLevel.n,
     );
   }
+  
+  /// 是否应该在报告中显示（只显示SR和S）
+  bool get shouldShowInReport => this == RatingLevel.sss || this == RatingLevel.s;
 }

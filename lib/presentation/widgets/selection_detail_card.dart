@@ -16,6 +16,10 @@ class SelectionDetailCard extends StatefulWidget {
     required this.accentColor,
     this.initiallyExpanded = false,
   });
+  
+  /// 过滤后的选择项（只显示SSS和S）
+  List<SelectionDetail> get filteredSelections => 
+      selections.where((s) => s.rating.shouldShowInReport).toList();
 
   @override
   State<SelectionDetailCard> createState() => SelectionDetailCardState();
@@ -38,6 +42,13 @@ class SelectionDetailCardState extends State<SelectionDetailCard> {
 
   @override
   Widget build(BuildContext context) {
+    final displaySelections = widget.filteredSelections;
+    
+    // 如果没有SSS或S的选项，不显示这个卡片
+    if (displaySelections.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
     return NeonCard(
       borderColor: widget.accentColor.withOpacity(0.5),
       padding: EdgeInsets.zero,
@@ -79,7 +90,7 @@ class SelectionDetailCardState extends State<SelectionDetailCard> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  '${widget.selections.length} 项',
+                  '${displaySelections.length} 项',
                   style: TextStyle(
                     color: widget.accentColor,
                     fontSize: 12,
@@ -98,8 +109,8 @@ class SelectionDetailCardState extends State<SelectionDetailCard> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
-                children: widget.selections.map((selection) {
-                  return _buildSelectionItem(selection);
+                children: displaySelections.map((selection) {
+                  return _buildSelectionItem(selection, displaySelections);
                 }).toList(),
               ),
             ),
@@ -109,8 +120,8 @@ class SelectionDetailCardState extends State<SelectionDetailCard> {
     );
   }
 
-  Widget _buildSelectionItem(SelectionDetail selection) {
-    final isLast = widget.selections.last == selection;
+  Widget _buildSelectionItem(SelectionDetail selection, List<SelectionDetail> displayList) {
+    final isLast = displayList.last == selection;
     
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -179,35 +190,23 @@ class SelectionDetailCardState extends State<SelectionDetailCard> {
 
   Color _getRatingColor(RatingLevel rating) {
     switch (rating) {
-      case RatingLevel.n:
-        return AppColors.textMuted;
-      case RatingLevel.q:
-        return AppColors.neonCyan;
-      case RatingLevel.s:
-        return AppColors.neonPurple;
-      case RatingLevel.ss:
-        return AppColors.neonGreen;
       case RatingLevel.sss:
         return AppColors.neonPink;
-      case RatingLevel.w:
+      case RatingLevel.s:
+        return AppColors.neonPurple;
+      case RatingLevel.n:
         return AppColors.textMuted;
     }
   }
 
   IconData _getRatingIcon(RatingLevel rating) {
     switch (rating) {
-      case RatingLevel.n:
-        return Icons.block;
-      case RatingLevel.q:
-        return Icons.radio_button_unchecked;
-      case RatingLevel.s:
-        return Icons.check_circle_outline;
-      case RatingLevel.ss:
-        return Icons.check_circle;
       case RatingLevel.sss:
         return Icons.favorite;
-      case RatingLevel.w:
-        return Icons.help_outline;
+      case RatingLevel.s:
+        return Icons.check_circle_outline;
+      case RatingLevel.n:
+        return Icons.remove_circle_outline;
     }
   }
 }

@@ -501,25 +501,14 @@ class _QuizDetailPageState extends State<QuizDetailPage>
             ],
           ),
           const SizedBox(height: 12),
-          // 第一行：正面评价
+          // 一行显示3个评分选项
           Row(
             children: [
-              Expanded(child: _buildRatingItem('SSS', '超爱', AppColors.ratingSSS)),
-              const SizedBox(width: 8),
-              Expanded(child: _buildRatingItem('SS', '喜欢', AppColors.ratingSS)),
+              Expanded(child: _buildRatingItem('SR', '特别喜欢', AppColors.ratingSSS)),
               const SizedBox(width: 8),
               Expanded(child: _buildRatingItem('S', '可以', AppColors.ratingS)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // 第二行：负面/中性评
-          Row(
-            children: [
-              Expanded(child: _buildRatingItem('Q', '勉强', AppColors.ratingQ)),
               const SizedBox(width: 8),
-              Expanded(child: _buildRatingItem('N', '拒绝', AppColors.ratingN)),
-              const SizedBox(width: 8),
-              Expanded(child: _buildRatingItem('W', '不懂', AppColors.ratingW)),
+              Expanded(child: _buildRatingItem('N', '跳过', AppColors.ratingN)),
             ],
           ),
         ],

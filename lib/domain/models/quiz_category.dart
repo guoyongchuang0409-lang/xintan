@@ -1,4 +1,4 @@
-﻿import 'quiz_item.dart';
+import 'quiz_item.dart';
 class QuizCategory {
   final String id;
   final String name;
@@ -9,7 +9,7 @@ class QuizCategory {
     required this.id,
     required this.name,
     required this.quizTypeId,
-    required this.items,
+    this.items = const [],
   });
 
   Map<String, dynamic> toJson() {
