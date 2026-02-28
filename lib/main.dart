@@ -1,36 +1,47 @@
-﻿import 'dart:io';
+﻿import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'app/app.dart';
 import 'core/services/sound_service.dart';
-import 'data/datasources/local_database.dart';
+import 'data/datasources/database_factory.dart';
 import 'data/datasources/preferences_datasource.dart';
+
+// 条件导入：只在非 Web 平台导入
+import 'main_io.dart' if (dart.library.html) 'main_web.dart' as platform;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // 桌面端初始化化 sqflite_ffi
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
+  // 平台特定初始化
+  try {
+    await platform.initializePlatform();
+  } catch (e) {
+    debugPrint('Platform initialization error (non-critical): $e');
   }
   
-  // 设置系统UI样式为深色主题题
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Color(0xFF0D0D1A),
-      systemNavigationBarIconBrightness: Brightness.light,
-    ),
-  );
+  // 设置系统UI样式（仅在支持的平台上）
+  try {
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: Color(0xFF0D0D1A),
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+    );
+  } catch (e) {
+    debugPrint('SystemChrome.setSystemUIOverlayStyle error (non-critical): $e');
+  }
   
-  // 设置首选屏幕方向向
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+  // 设置首选屏幕方向（仅在支持的平台上）
+  try {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+  } catch (e) {
+    debugPrint('SystemChrome.setPreferredOrientations error (non-critical): $e');
+  }
   
   runApp(const QuizApp());
 }
@@ -59,11 +70,16 @@ class AppInitializer {
   }
   static Future<void> _initDatabase() async {
     try {
-      // 触发数据库初始化化
-      await LocalDatabase.instance.database;
+      // 使用数据库工厂获取平台特定的实现
+      final db = DatabaseFactory.instance;
+      // 触发初始化（对于 SQLite 会打开数据库，对于 Web 会初始化 SharedPreferences）
+      await db.getAllReports();
     } catch (e) {
       debugPrint('Database initialization error: $e');
-      rethrow;
+      // Web 平台数据库初始化失败不应该阻止应用启动
+      if (!kIsWeb) {
+        rethrow;
+      }
     }
   }
   static Future<void> _initPreferences() async {

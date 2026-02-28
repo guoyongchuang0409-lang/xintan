@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'dart:io';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/toast_utils.dart';
+import '../../core/utils/platform_utils.dart';
 import '../../core/services/path_manager.dart';
 import '../../core/services/sound_service.dart';
 import '../../core/utils/advanced_screenshot_utils.dart';
@@ -170,7 +171,7 @@ class _SettingsPageState extends State<SettingsPage>
   }
 
   Widget _buildPathSection() {
-    final isDesktop = Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+    final isDesktop = PlatformUtils.isDesktop;
     
     if (!isDesktop) {
       return const SizedBox.shrink();

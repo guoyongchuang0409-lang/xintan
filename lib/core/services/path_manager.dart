@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
@@ -11,6 +12,11 @@ class PathManager {
   static const String _customPathKey = 'custom_screenshot_path';
   String? _customPath;
   Future<String> getCurrentPath() async {
+    // Web 平台直接返回默认路径
+    if (kIsWeb) {
+      return await getDefaultPath();
+    }
+    
     // 如果有自己测定义路径，使用自己测定义路径
     if (_customPath != null && await Directory(_customPath!).exists()) {
       return _customPath!;
@@ -29,6 +35,11 @@ class PathManager {
     return await getDefaultPath();
   }
   Future<bool> setCustomPath(String? newPath) async {
+    // Web 平台不支持自定义路径
+    if (kIsWeb) {
+      return false;
+    }
+    
     if (newPath == null) {
       // 清除自己测定义路
       _customPath = null;
@@ -55,6 +66,11 @@ class PathManager {
     return true;
   }
   Future<String> getDefaultPath() async {
+    // Web 平台不支持文件系统操作
+    if (kIsWeb) {
+      return '/downloads'; // Web 平台返回虚拟路径
+    }
+    
     if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
       // 电脑端：文档目录下的QuizReports文件
       final directory = await getApplicationDocumentsDirectory();
@@ -72,6 +88,11 @@ class PathManager {
     }
   }
   Future<bool> hasCustomPath() async {
+    // Web 平台不支持自定义路径
+    if (kIsWeb) {
+      return false;
+    }
+    
     if (_customPath != null) return true;
     
     final prefs = await SharedPreferences.getInstance();

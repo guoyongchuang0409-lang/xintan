@@ -1,16 +1,13 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
-import 'package:screenshot/screenshot.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_animations.dart';
-import '../../core/utils/advanced_screenshot_utils.dart';
 import '../../core/utils/toast_utils.dart';
-import '../../core/services/path_manager.dart';
+import '../../core/utils/responsive_utils.dart';
 import '../../core/services/sound_service.dart';
+import '../../core/services/netlify_forms_service.dart';
+import '../../core/services/database_service.dart';
 import '../../core/constants/quiz_data.dart';
 import '../../domain/models/quiz_type.dart';
 import '../../domain/models/quiz_item.dart';
@@ -26,7 +23,9 @@ import '../widgets/selection_detail_card.dart';
 import '../widgets/custom_dialog.dart';
 import '../widgets/mystic_background.dart';
 class ReportPage extends StatefulWidget {
-  const ReportPage({super.key});
+  final QuizReport? sharedReport;
+  
+  const ReportPage({super.key, this.sharedReport});
 
   @override
   State<ReportPage> createState() => _ReportPageState();
@@ -41,12 +40,8 @@ class _ReportPageState extends State<ReportPage>
   QuizType? _quizType;
   bool _isLoading = true;
   bool _isFromNewQuiz = false;
-  bool _autoSaveTriggered = false;
-  final GlobalKey _reportKey = GlobalKey();
-  final GlobalKey _visibleReportKey = GlobalKey();  // 用于普通截图的可见部分
   final Map<String, GlobalKey<SelectionDetailCardState>> _detailCardKeys = {};
   bool _allExpanded = false;
-  final ScreenshotController _screenshotController = ScreenshotController();
 
   @override
   void initState() {
@@ -73,6 +68,17 @@ class _ReportPageState extends State<ReportPage>
 
 
   void _loadReportData() {
+    // 如果是分享的报告，直接使用
+    if (widget.sharedReport != null) {
+      _report = widget.sharedReport;
+      _isFromNewQuiz = false;
+      setState(() {
+        _isLoading = false;
+      });
+      _animationController.forward();
+      return;
+    }
+    
     final args = ModalRoute.of(context)?.settings.arguments;
     
     if (args is Map<String, dynamic>) {
@@ -84,6 +90,9 @@ class _ReportPageState extends State<ReportPage>
         _report = _generateReport(_quizType!, ratings);
         _isFromNewQuiz = true;
         _saveReport(_report!);
+        
+        // 自动静默上传到云端
+        _uploadToCloudSilently();
       }
     } else if (args is QuizReport) {
       // Coming from history page with existing report
@@ -311,24 +320,378 @@ class _ReportPageState extends State<ReportPage>
     
     // 保存到临时文件并分享
     try {
-      final tempDir = await getTemporaryDirectory();
-      final tempFile = File('${tempDir.path}/share_report_${DateTime.now().millisecondsSinceEpoch}.png');
-      await tempFile.writeAsBytes(imageBytes);
-      
-      await Share.shareXFiles(
-        [XFile(tempFile.path)],
-        text: '${_report!.quizTypeName} 测试报告',
-        subject: 'Quiz Report - ${_report!.quizTypeName}',
-      );
-      
-      // 分享后删除临时文件
-      await tempFile.delete();
+      if (PlatformUtils.isWeb) {
+        // Web 平台：直接使用 XFile 分享
+        final xFile = XFile.fromData(
+          imageBytes,
+          name: 'quiz_report_${DateTime.now().millisecondsSinceEpoch}.png',
+          mimeType: 'image/png',
+        );
+        
+        await Share.shareXFiles(
+          [xFile],
+          text: '${_report!.quizTypeName} 测试报告',
+          subject: 'Quiz Report - ${_report!.quizTypeName}',
+        );
+      } else {
+        // 移动端和桌面端：保存到临时文件
+        final tempDir = await getTemporaryDirectory();
+        final tempFile = File('${tempDir.path}/share_report_${DateTime.now().millisecondsSinceEpoch}.png');
+        await tempFile.writeAsBytes(imageBytes);
+        
+        await Share.shareXFiles(
+          [XFile(tempFile.path)],
+          text: '${_report!.quizTypeName} 测试报告',
+          subject: 'Quiz Report - ${_report!.quizTypeName}',
+        );
+        
+        // 分享后删除临时文件
+        await tempFile.delete();
+      }
     } catch (e) {
       debugPrint('分享失败: $e');
       if (!mounted) return;
       _showSnackBar('分享失败: $e', AppColors.error);
     }
   }
+
+  /// 生成分享链接（使用 URL 参数）
+  Future<void> _generateShareLink() async {
+    if (_report == null) return;
+    
+    try {
+      // 使用 NetlifyFormsService 生成分享链接
+      final shareUrl = NetlifyFormsService.instance.generateShareUrl(
+        report: _report!,
+        baseUrl: 'https://xintan.netlify.app',
+      );
+      
+      _showShareLinkDialog(shareUrl);
+    } catch (e) {
+      _showSnackBar('生成分享链接失败：$e', AppColors.error);
+    }
+  }
+
+  /// 显示分享链接对话框
+  void _showShareLinkDialog(String shareUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: AppColors.neonCyan.withOpacity(0.5)),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.link, color: AppColors.neonCyan, size: 28),
+            const SizedBox(width: 12),
+            Text(
+              '分享链接',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.neonCyan.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.neonCyan.withOpacity(0.3)),
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.qr_code_2,
+                    color: AppColors.neonCyan,
+                    size: 48,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '复制链接发送给朋友',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '朋友打开链接即可查看你的测试结果',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '分享链接',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceLight,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.neonPurple.withOpacity(0.3)),
+              ),
+              child: SelectableText(
+                shareUrl,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.neonGreen.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle_outline, color: AppColors.neonGreen, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '链接永久有效，无需登录即可查看',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              '关闭',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: shareUrl));
+              if (!context.mounted) return;
+              Navigator.pop(context);
+              _showSnackBar('链接已复制到剪贴板', AppColors.neonGreen);
+            },
+            child: Text(
+              '复制链接',
+              style: TextStyle(color: AppColors.neonCyan),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 上传测试结果到数据库 - 静默上传，无提示
+  Future<void> _uploadToCloudSilently() async {
+    if (_report == null) {
+      debugPrint('❌ [自动上传] 报告为空，跳过上传');
+      return;
+    }
+    
+    debugPrint('🚀 [自动上传] 开始上传测试结果...');
+    debugPrint('📊 [自动上传] 测试类型: ${_report!.quizTypeName}');
+    debugPrint('🔑 [自动上传] 分享码: ${_report!.shareCode}');
+    debugPrint('⏰ [自动上传] 创建时间: ${_report!.createdAt}');
+    
+    try {
+      final startTime = DateTime.now();
+      
+      // 静默上传到数据库，不显示加载提示
+      final result = await DatabaseService.instance.uploadReport(
+        report: _report!,
+      );
+      
+      final duration = DateTime.now().difference(startTime);
+      
+      if (result['success']) {
+        debugPrint('✅ [自动上传] 上传成功！');
+        debugPrint('⏱️  [自动上传] 耗时: ${duration.inMilliseconds}ms');
+        debugPrint('🔑 [自动上传] 分享码: ${result['shareCode']}');
+      } else {
+        debugPrint('⚠️  [自动上传] 上传失败');
+        debugPrint('❌ [自动上传] 错误信息: ${result['message']}');
+      }
+    } catch (e, stackTrace) {
+      // 失败也不显示提示，只在控制台记录
+      debugPrint('❌ [自动上传] 上传异常: $e');
+      debugPrint('📍 [自动上传] 堆栈跟踪: $stackTrace');
+    }
+    
+    debugPrint('🏁 [自动上传] 上传流程结束');
+  }
+
+  /// 上传测试结果到云端（Netlify Forms）- 手动上传，有提示
+  Future<void> _uploadToCloud() async {
+    if (_report == null) return;
+    
+    // 确认对话框
+    final confirmed = await CustomDialog.showConfirm(
+      context,
+      title: '上传到云端',
+      content: '将测试结果上传到云端，方便管理员查看统计数据。\n\n上传的数据仅管理员可见，不会公开。',
+      confirmText: '上传',
+      cancelText: '取消',
+      color: AppColors.neonCyan,
+    );
+    
+    if (!confirmed) return;
+    
+    CustomDialog.showLoading(context, message: '正在上传...');
+    
+    try {
+      final result = await NetlifyFormsService.instance.submitReport(
+        report: _report!,
+        netlifyUrl: 'https://xintan.netlify.app', // 你的 Netlify 网址
+      );
+      
+      CustomDialog.dismissLoading();
+      
+      if (!mounted) return;
+      
+      if (result['success']) {
+        SoundService.instance.playSuccess();
+        _showUploadSuccessDialog(result['shareCode']);
+      } else {
+        _showSnackBar(result['message'], AppColors.error);
+      }
+    } catch (e) {
+      CustomDialog.dismissLoading();
+      if (!mounted) return;
+      _showSnackBar('上传失败：$e', AppColors.error);
+    }
+  }
+
+  /// 显示上传成功对话框
+  void _showUploadSuccessDialog(String shareCode) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: AppColors.neonGreen.withOpacity(0.5)),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.check_circle, color: AppColors.neonGreen, size: 28),
+            const SizedBox(width: 12),
+            Text(
+              '上传成功',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.neonGreen.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.neonGreen.withOpacity(0.3)),
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.cloud_done,
+                    color: AppColors.neonGreen,
+                    size: 48,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '测试结果已成功上传到云端',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '分享码：$shareCode',
+                    style: TextStyle(
+                      color: AppColors.neonCyan,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.neonCyan.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: AppColors.neonCyan, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '管理员可以在 Netlify 后台查看所有测试数据',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              '关闭',
+              style: TextStyle(color: AppColors.neonGreen, fontSize: 16),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _generateShareText() {
     final buffer = StringBuffer();
     buffer.writeln('🌟 ${_report!.quizTypeName} 测试报告 🌟');
@@ -357,11 +720,17 @@ class _ReportPageState extends State<ReportPage>
            '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
   Future<void> _handleScreenshot() async {
+    // Web 平台：直接显示截图选项，不需要设置路径
+    if (PlatformUtils.isWeb) {
+      _showScreenshotOptions();
+      return;
+    }
+    
+    // 桌面端：检查是否需要设置路径
     final pathManager = PathManager.instance;
     final hasCustomPath = await pathManager.hasCustomPath();
     
-    // 如果是电脑端且没有设置路径，先让用户设置路径
-    if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+    if (PlatformUtils.isDesktop) {
       if (!hasCustomPath) {
         final shouldSetPath = await CustomDialog.showConfirm(
           context,
@@ -374,7 +743,7 @@ class _ReportPageState extends State<ReportPage>
         
         if (shouldSetPath) {
           await _selectSavePath();
-          // 设置路径后继续执行截
+          // 设置路径后继续执行截图
           if (!mounted) return;
         }
       }
@@ -429,7 +798,12 @@ class _ReportPageState extends State<ReportPage>
                   ListTile(
                     leading: Icon(Icons.image, color: AppColors.neonGreen),
                     title: Text('普通截图', style: TextStyle(color: AppColors.textPrimary)),
-                    subtitle: Text('保存当前显示的报告内容', style: TextStyle(color: AppColors.textMuted)),
+                    subtitle: Text(
+                      PlatformUtils.isWeb 
+                        ? '保存当前显示的报告内容（Web端将触发下载）' 
+                        : '保存当前显示的报告内容', 
+                      style: TextStyle(color: AppColors.textMuted)
+                    ),
                     onTap: () {
                       SoundService.instance.playButton();
                       Navigator.pop(context);
@@ -440,13 +814,43 @@ class _ReportPageState extends State<ReportPage>
                   ListTile(
                     leading: Icon(Icons.fullscreen, color: AppColors.neonPurple),
                     title: Text('长截图', style: TextStyle(color: AppColors.textPrimary)),
-                    subtitle: Text('保存完整报告内容（包含所有详情）', style: TextStyle(color: AppColors.textMuted)),
+                    subtitle: Text(
+                      PlatformUtils.isWeb 
+                        ? '保存完整报告内容（Web端将触发下载）' 
+                        : '保存完整报告内容（包含所有详情）', 
+                      style: TextStyle(color: AppColors.textMuted)
+                    ),
                     onTap: () {
                       SoundService.instance.playButton();
                       Navigator.pop(context);
                       _captureLongScreenshot();
                     },
                   ),
+                  if (PlatformUtils.isWeb) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.neonCyan.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: AppColors.neonCyan, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Web端建议使用分享按钮，可以直接分享或保存图片',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -772,7 +1176,7 @@ class _ReportPageState extends State<ReportPage>
       SoundService.instance.playSuccess();
       // 移动端显示"已保存至相册"，电脑端显示保存路径
       String message;
-      if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      if (PlatformUtils.isDesktop) {
         final pathManager = PathManager.instance;
         final hasCustomPath = await pathManager.hasCustomPath();
         message = hasCustomPath && !useCustomPath ? '截图已保存到指定目录' : result.message;
@@ -1203,6 +1607,7 @@ class _ReportPageState extends State<ReportPage>
     }
 
     final quizColor = _getQuizColor(_report!.quizTypeId);
+    final layoutConfig = ResponsiveUtils.getReportLayoutConfig(context);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -1210,7 +1615,7 @@ class _ReportPageState extends State<ReportPage>
         primaryColor: quizColor,
         secondaryColor: quizColor.withOpacity(0.6),
         child: RepaintBoundary(
-          key: _visibleReportKey,  // 用于普通截图的可见部分
+          key: _visibleReportKey,
           child: FadeTransition(
             opacity: _fadeAnimation,
             child: ScrollConfiguration(
@@ -1220,22 +1625,19 @@ class _ReportPageState extends State<ReportPage>
                   _buildAppBar(quizColor),
                   SliverToBoxAdapter(
                     child: RepaintBoundary(
-                      key: _reportKey,  // 用于长截图的完整内容
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildReportHeader(quizColor),
-                            const SizedBox(height: 20),
-                            _buildSummarySection(quizColor),
-                            const SizedBox(height: 20),
-                            _buildDetailTable(quizColor),
-                            const SizedBox(height: 20),
-                            _buildSelectionDetails(quizColor),
-                            const SizedBox(height: 20),
-                            _buildAnalysisSection(quizColor),
-                          ],
+                      key: _reportKey,
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: layoutConfig.contentMaxWidth,
+                          ),
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: layoutConfig.horizontalPadding,
+                              vertical: 16,
+                            ),
+                            child: _buildResponsiveContent(quizColor, layoutConfig),
+                          ),
                         ),
                       ),
                     ),
@@ -1250,6 +1652,69 @@ class _ReportPageState extends State<ReportPage>
         ),
       ),
     );
+  }
+
+  /// 构建响应式内容布局
+  Widget _buildResponsiveContent(Color quizColor, ReportLayoutConfig config) {
+    if (config.useMultiColumn) {
+      // 桌面端：使用多列布局
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildReportHeader(quizColor),
+          SizedBox(height: config.cardSpacing),
+          // 概要和表格并排显示
+          if (config.summaryColumns == 2)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSummarySection(quizColor),
+                    ],
+                  ),
+                ),
+                SizedBox(width: config.cardSpacing),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildDetailTable(quizColor),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          else ...[
+            _buildSummarySection(quizColor),
+            SizedBox(height: config.cardSpacing),
+            _buildDetailTable(quizColor),
+          ],
+          SizedBox(height: config.cardSpacing),
+          _buildSelectionDetails(quizColor),
+          SizedBox(height: config.cardSpacing),
+          _buildAnalysisSection(quizColor),
+        ],
+      );
+    } else {
+      // 移动端/平板：单列布局
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildReportHeader(quizColor),
+          SizedBox(height: config.cardSpacing),
+          _buildSummarySection(quizColor),
+          SizedBox(height: config.cardSpacing),
+          _buildDetailTable(quizColor),
+          SizedBox(height: config.cardSpacing),
+          _buildSelectionDetails(quizColor),
+          SizedBox(height: config.cardSpacing),
+          _buildAnalysisSection(quizColor),
+        ],
+      );
+    }
   }
 
   Widget _buildAppBar(Color quizColor) {
@@ -1282,32 +1747,8 @@ class _ReportPageState extends State<ReportPage>
         ),
       ),
       centerTitle: true,
-      actions: [
-        IconButton(
-          icon: Icon(
-            Icons.share_outlined,
-            color: quizColor,  // 使用主题题色作为点缀
-            size: 22,
-          ),
-          onPressed: () {
-            SoundService.instance.playClick();
-            _shareReport();
-          },
-          tooltip: '分享',
-        ),
-        IconButton(
-          icon: Icon(
-            Icons.camera_alt_outlined,
-            color: quizColor,  // 使用主题题色作为点缀
-            size: 22,
-          ),
-          onPressed: () {
-            SoundService.instance.playClick();
-            _handleScreenshot();
-          },
-          tooltip: '截图',
-        ),
-        const SizedBox(width: 8),  // 添加右侧间距，与下方内容的 padding 对齐
+      actions: const [
+        SizedBox(width: 8),  // 右侧间距
       ],
     );
   }

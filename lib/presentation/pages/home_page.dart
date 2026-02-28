@@ -9,7 +9,7 @@ import '../../domain/models/quiz_type.dart';
 import '../widgets/neon_card.dart';
 import '../widgets/mystic_background.dart';
 import 'history_page.dart';
-import 'settings_page.dart';
+import 'profile_page.dart';
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -23,7 +23,7 @@ class _HomePageState extends State<HomePage> {
   final List<Widget> _pages = [
     const _QuizTypeListPage(),
     const HistoryPage(),
-    const SettingsPage(),
+    const ProfilePage(),
   ];
 
   @override
@@ -112,9 +112,9 @@ class _HomePageState extends State<HomePage> {
               ),
               _buildNavItem(
                 index: 2,
-                icon: Icons.settings_outlined,
-                activeIcon: Icons.settings,
-                label: '设置',
+                icon: Icons.person_outline,
+                activeIcon: Icons.person,
+                label: '我的',
               ),
             ],
           ),
@@ -206,8 +206,12 @@ class _HomePageState extends State<HomePage> {
 
   // 侧边导航栏(桌面端)
   Widget _buildSideNavigation() {
+    final screenWidth = ResponsiveUtils.getWidth(context);
+    // 根据屏幕宽度动态调整侧边栏宽度
+    final sideNavWidth = screenWidth >= ResponsiveUtils.largeDesktopBreakpoint ? 280.0 : 240.0;
+    
     return Container(
-      width: 240,
+      width: sideNavWidth,
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(
@@ -228,26 +232,27 @@ class _HomePageState extends State<HomePage> {
       child: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
             // 标题
             const Text(
               '心探',
               style: TextStyle(
                 color: AppColors.textPrimary,
-                fontSize: 24,
+                fontSize: 28,
                 fontWeight: FontWeight.bold,
-                letterSpacing: 4,
+                letterSpacing: 6,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             Text(
               '探索内心的真实自我',
               style: TextStyle(
                 color: AppColors.textSecondary,
-                fontSize: 12,
+                fontSize: 13,
+                letterSpacing: 1,
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 40),
             // 导航项
             _buildSideNavItem(
               index: 0,
@@ -263,11 +268,44 @@ class _HomePageState extends State<HomePage> {
             ),
             _buildSideNavItem(
               index: 2,
-              icon: Icons.settings_outlined,
-              activeIcon: Icons.settings,
-              label: '设置',
+              icon: Icons.person_outline,
+              activeIcon: Icons.person,
+              label: '我的',
             ),
             const Spacer(),
+            // 底部装饰
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.neonCyan.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.neonCyan.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.favorite,
+                      color: AppColors.neonPink,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '心探',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -420,7 +458,39 @@ class _QuizTypeListPageState extends State<_QuizTypeListPage>
                     final cardSpacing = ResponsiveUtils.getCardSpacing(context);
                     final listTopPadding = ResponsiveUtils.getListTopPadding(context);
                     final listBottomPadding = ResponsiveUtils.getListBottomPadding(context);
+                    final gridColumns = ResponsiveUtils.getGridColumns(context);
+                    final useGrid = gridColumns > 1;
                     
+                    if (useGrid) {
+                      // 大屏幕使用网格布局
+                      return ScrollConfiguration(
+                        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+                        child: GridView.builder(
+                          padding: EdgeInsets.fromLTRB(
+                            horizontalPadding,
+                            listTopPadding,
+                            horizontalPadding,
+                            listBottomPadding,
+                          ),
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: gridColumns,
+                            crossAxisSpacing: cardSpacing * 2,
+                            mainAxisSpacing: cardSpacing * 2,
+                            childAspectRatio: gridColumns == 3 ? 1.0 : 1.2, // 3列时使用1:1，2列时使用1.2:1
+                          ),
+                          itemCount: quizTypes.length,
+                          itemBuilder: (context, index) {
+                            return _QuizTypeCard(
+                              quizType: quizTypes[index],
+                              index: index,
+                              cardHeight: null, // 网格布局不需要固定高度
+                            );
+                          },
+                        ),
+                      );
+                    }
+                    
+                    // 小屏幕使用列表布局
                     // 计算自适应卡片高度
                     final itemCount = quizTypes.length;
                     final totalSpacing = cardSpacing * (itemCount - 1) + listTopPadding + listBottomPadding;
@@ -900,7 +970,14 @@ class _QuizTypeCardState extends State<_QuizTypeCard>
     );
     
     // 使用传入的卡片高度或根据屏幕高度计算
-    final cardHeight = widget.cardHeight ?? 100.0;
+    final cardHeight = widget.cardHeight;
+    
+    // 如果没有指定高度（网格布局），使用自适应布局
+    if (cardHeight == null) {
+      return _buildGridCard(cardColor, totalItems);
+    }
+    
+    // 列表布局：使用固定高度
     final scaleFactor = ResponsiveUtils.getCardScaleFactor(cardHeight);
     
     // 根据卡片高度动态调整内部元素尺寸
@@ -957,6 +1034,7 @@ class _QuizTypeCardState extends State<_QuizTypeCard>
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
                       widget.quizType.name,
@@ -999,6 +1077,118 @@ class _QuizTypeCardState extends State<_QuizTypeCard>
                 Icons.chevron_right,
                 color: cardColor.withOpacity(0.7),
                 size: 24,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 网格布局的卡片
+  Widget _buildGridCard(Color cardColor, int totalItems) {
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: NeonCard(
+          borderColor: cardColor,
+          onTap: () => _navigateToQuizDetail(context),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Icon container with pulse effect
+              Flexible(
+                flex: 3,
+                child: AnimatedBuilder(
+                  animation: _pulseAnimation,
+                  builder: (context, child) {
+                    return Container(
+                      constraints: const BoxConstraints(
+                        maxWidth: 80,
+                        maxHeight: 80,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cardColor.withOpacity(0.25),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: cardColor.withOpacity(0.5 + _pulseAnimation.value * 0.2),
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: cardColor.withOpacity(0.3 + _pulseAnimation.value * 0.3),
+                            blurRadius: 15 + _pulseAnimation.value * 10,
+                            spreadRadius: _pulseAnimation.value * 4,
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Icon(
+                          _getQuizIcon(),
+                          color: cardColor,
+                          size: 40,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Title
+              Flexible(
+                flex: 2,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.quizType.name,
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    // Description
+                    Text(
+                      widget.quizType.description,
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Info chips
+              Flexible(
+                flex: 1,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildInfoChip(
+                      icon: Icons.category_outlined,
+                      label: '${widget.quizType.categories.length}分类',
+                      color: cardColor,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildInfoChip(
+                      icon: Icons.list_alt_outlined,
+                      label: '$totalItems项',
+                      color: cardColor,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

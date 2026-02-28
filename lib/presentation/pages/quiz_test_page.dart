@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_animations.dart';
 import '../../core/services/sound_service.dart';
+import '../../core/utils/responsive_utils.dart';
 import '../../domain/models/quiz_type.dart';
 import '../../domain/models/quiz_category.dart';
 import '../../domain/models/quiz_item.dart';
@@ -206,6 +207,7 @@ class _QuizTestPageState extends State<QuizTestPage>
 
     final quizColor = _getQuizColor(_quizType!.id);
     final categories = _quizType!.categories;
+    final layoutConfig = ResponsiveUtils.getQuizTestLayoutConfig(context);
 
     return WillPopScope(
       onWillPop: () async {
@@ -216,17 +218,227 @@ class _QuizTestPageState extends State<QuizTestPage>
         backgroundColor: AppColors.background,
         body: FadeTransition(
           opacity: _fadeAnimation,
+          child: layoutConfig.showSidePanel
+              ? _buildDesktopLayout(categories, quizColor, layoutConfig)
+              : _buildMobileLayout(categories, quizColor, layoutConfig),
+        ),
+      ),
+    );
+  }
+
+  /// 桌面端布局：侧边栏 + 主内容区
+  Widget _buildDesktopLayout(
+    List<QuizCategory> categories,
+    Color quizColor,
+    QuizTestLayoutConfig config,
+  ) {
+    return Row(
+      children: [
+        // 左侧进度面板
+        Container(
+          width: 280,
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            border: Border(
+              right: BorderSide(
+                color: quizColor.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+          ),
           child: Column(
             children: [
               _buildAppBar(quizColor),
-              _buildCategoryTabs(categories, quizColor),
               Expanded(
-                child: _buildCategoryPages(categories, quizColor),
+                child: _buildSideProgressPanel(categories, quizColor),
               ),
-              _buildBottomBar(quizColor),
             ],
           ),
         ),
+        // 右侧主内容区
+        Expanded(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: config.contentMaxWidth,
+              ),
+              child: Column(
+                children: [
+                  _buildCategoryTabs(categories, quizColor),
+                  Expanded(
+                    child: _buildCategoryPages(categories, quizColor),
+                  ),
+                  _buildBottomBar(quizColor),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 移动端/平板布局：传统垂直布局
+  Widget _buildMobileLayout(
+    List<QuizCategory> categories,
+    Color quizColor,
+    QuizTestLayoutConfig config,
+  ) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: config.contentMaxWidth,
+        ),
+        child: Column(
+          children: [
+            _buildAppBar(quizColor),
+            _buildCategoryTabs(categories, quizColor),
+            Expanded(
+              child: _buildCategoryPages(categories, quizColor),
+            ),
+            _buildBottomBar(quizColor),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 侧边进度面板（桌面端）
+  Widget _buildSideProgressPanel(List<QuizCategory> categories, Color quizColor) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 总体进度
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: quizColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: quizColor.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.analytics_outlined, color: quizColor, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      '总体进度',
+                      style: TextStyle(
+                        color: quizColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                LinearProgressIndicator(
+                  value: _progress,
+                  backgroundColor: AppColors.surfaceLight,
+                  valueColor: AlwaysStoppedAnimation<Color>(quizColor),
+                  minHeight: 8,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '$_completedItems / $_totalItems 项',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          // 分类进度列表
+          Text(
+            '分类进度',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...categories.asMap().entries.map((entry) {
+            final index = entry.key;
+            final category = entry.value;
+            final categoryItemIds = category.items.map((item) => item.id).toSet();
+            final ratedCount = _ratings.keys.where((id) => categoryItemIds.contains(id)).length;
+            final totalCount = category.items.length;
+            final isActive = index == _currentCategoryIndex;
+            
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: GestureDetector(
+                onTap: () => _onCategoryChanged(index),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? quizColor.withOpacity(0.15)
+                        : AppColors.surface,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isActive
+                          ? quizColor.withOpacity(0.5)
+                          : AppColors.textMuted.withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              category.name,
+                              style: TextStyle(
+                                color: isActive
+                                    ? quizColor
+                                    : AppColors.textPrimary,
+                                fontSize: 13,
+                                fontWeight: isActive
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '$ratedCount/$totalCount',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      LinearProgressIndicator(
+                        value: totalCount > 0 ? ratedCount / totalCount : 0,
+                        backgroundColor: AppColors.surfaceLight,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          isActive ? quizColor : AppColors.textMuted,
+                        ),
+                        minHeight: 4,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
       ),
     );
   }

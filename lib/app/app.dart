@@ -8,12 +8,13 @@ import '../main.dart';
 import '../presentation/providers/quiz_provider.dart';
 import '../presentation/providers/report_provider.dart';
 import '../presentation/providers/settings_provider.dart';
+import '../presentation/providers/user_profile_provider.dart';
 import '../presentation/pages/home_page.dart';
 import '../presentation/pages/quiz_detail_page.dart';
 import '../presentation/pages/quiz_test_page.dart';
 import '../presentation/pages/report_page.dart';
 import '../presentation/pages/history_page.dart';
-import '../presentation/pages/settings_page.dart';
+import '../presentation/pages/profile_page.dart';
 class QuizApp extends StatelessWidget {
   const QuizApp({super.key});
 
@@ -24,6 +25,7 @@ class QuizApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => QuizProvider()),
         ChangeNotifierProvider(create: (_) => ReportProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider(create: (_) => UserProfileProvider()),
       ],
       child: MaterialApp(
         title: '心探',
@@ -71,8 +73,9 @@ class QuizApp extends StatelessWidget {
           settings: settings,
         );
       case '/settings':
+      case '/profile':
         return AppAnimations.createPageRoute(
-          page: const SettingsPage(),
+          page: const ProfilePage(),
           settings: settings,
         );
       default:

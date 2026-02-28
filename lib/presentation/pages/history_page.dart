@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_animations.dart';
 import '../../core/utils/toast_utils.dart';
+import '../../core/utils/responsive_utils.dart';
 import '../../core/services/sound_service.dart';
 import '../../domain/models/quiz_report.dart';
 import '../providers/report_provider.dart';
@@ -252,15 +253,191 @@ class _HistoryPageState extends State<HistoryPage>
   }
 
   Widget _buildReportList(List<QuizReport> reports) {
-    return ScrollConfiguration(
-      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: reports.length,
-        itemBuilder: (context, index) {
-          final report = reports[index];
-          return _buildReportCard(report, index);
-        },
+    final deviceType = ResponsiveUtils.getDeviceType(context);
+    final isDesktop = deviceType == DeviceType.desktop || 
+                      deviceType == DeviceType.largeDesktop;
+    
+    if (isDesktop) {
+      // 桌面端：使用网格布局
+      return ScrollConfiguration(
+        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: GridView.builder(
+              padding: const EdgeInsets.all(24),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: deviceType == DeviceType.largeDesktop ? 3 : 2,
+                crossAxisSpacing: 20,
+                mainAxisSpacing: 20,
+                childAspectRatio: 1.5,
+              ),
+              itemCount: reports.length,
+              itemBuilder: (context, index) {
+                final report = reports[index];
+                return _buildReportGridCard(report, index);
+              },
+            ),
+          ),
+        ),
+      );
+    } else {
+      // 移动端/平板：使用列表布局
+      return ScrollConfiguration(
+        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 700),
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: reports.length,
+              itemBuilder: (context, index) {
+                final report = reports[index];
+                return _buildReportCard(report, index);
+              },
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  /// 网格卡片（桌面端）
+  Widget _buildReportGridCard(QuizReport report, int index) {
+    final quizColor = _getQuizColor(report.quizTypeId);
+    
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 200 + (index * 50).clamp(0, 300)),
+      curve: AppAnimations.defaultCurve,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.scale(
+            scale: 0.9 + (0.1 * value),
+            child: child,
+          ),
+        );
+      },
+      child: GestureDetector(
+        onTap: () => _viewReport(report),
+        child: NeonCard(
+          borderColor: quizColor,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: quizColor.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: quizColor.withOpacity(0.5),
+                        width: 2,
+                      ),
+                    ),
+                    child: Icon(
+                      _getQuizIcon(report.quizTypeId),
+                      color: quizColor,
+                      size: 28,
+                    ),
+                  ),
+                  const Spacer(),
+                  PopupMenuButton<String>(
+                    icon: Icon(Icons.more_vert, color: AppColors.textMuted),
+                    color: AppColors.surface,
+                    onSelected: (value) {
+                      if (value == 'delete') {
+                        _confirmDelete(report);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete_outline, color: AppColors.error, size: 20),
+                            const SizedBox(width: 8),
+                            Text('删除', style: TextStyle(color: AppColors.error)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                report.quizTypeName,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _formatDate(report.createdAt),
+                style: TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 13,
+                ),
+              ),
+              const Spacer(),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: quizColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: quizColor.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      '${report.ratings.length} 项',
+                      style: TextStyle(
+                        color: quizColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  if (report.shareCode != null) ...[
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: quizColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          report.shareCode!,
+                          style: TextStyle(
+                            color: quizColor.withOpacity(0.8),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

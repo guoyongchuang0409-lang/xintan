@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import '../utils/platform_utils.dart';
 class SoundService {
   static SoundService? _instance;
   static SoundService get instance {
@@ -33,7 +34,7 @@ class SoundService {
     if (_isInitialized) return;
     
     // 检测是否为桌面平台
-    _isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+    _isDesktop = PlatformUtils.isDesktop;
     
     try {
       // 初始化化音频播放器

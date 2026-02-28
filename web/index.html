@@ -29,10 +29,50 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>personality_quiz_app</title>
+  <title>心探 - 探索内心的真实自我</title>
   <link rel="manifest" href="manifest.json">
+  
+  <!-- 截图下载功能 -->
+  <script>
+    // Web 平台截图下载函数
+    function downloadImage(imageData, fileName) {
+      try {
+        // 创建 Blob 对象
+        const blob = new Blob([imageData], { type: 'image/png' });
+        
+        // 创建下载链接
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName + '.png';
+        
+        // 触发下载
+        document.body.appendChild(a);
+        a.click();
+        
+        // 清理
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        return true;
+      } catch (error) {
+        console.error('下载失败:', error);
+        return false;
+      }
+    }
+  </script>
 </head>
 <body>
+  <!-- Netlify Forms: 用于收集测试结果数据 -->
+  <!-- 这个表单是隐藏的，只用于让 Netlify 识别表单结构 -->
+  <form name="quiz-results" netlify netlify-honeypot="bot-field" hidden>
+    <input type="text" name="shareCode" />
+    <input type="text" name="quizTypeId" />
+    <input type="text" name="quizTypeName" />
+    <input type="text" name="createdAt" />
+    <textarea name="reportData"></textarea>
+  </form>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

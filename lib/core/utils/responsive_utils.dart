@@ -6,6 +6,7 @@ class ResponsiveUtils {
   static const double mobileBreakpoint = 600;
   static const double tabletBreakpoint = 900;
   static const double desktopBreakpoint = 800; // 降低桌面端断点，使侧边栏更早生效
+  static const double largeDesktopBreakpoint = 1440; // 大屏桌面端断点
 
   /// 判断是否为移动端
   static bool isMobile(BuildContext context) {
@@ -21,6 +22,21 @@ class ResponsiveUtils {
   /// 判断是否为桌面端
   static bool isDesktop(BuildContext context) {
     return MediaQuery.of(context).size.width >= desktopBreakpoint;
+  }
+
+  /// 判断是否为大屏桌面端
+  static bool isLargeDesktop(BuildContext context) {
+    return MediaQuery.of(context).size.width >= largeDesktopBreakpoint;
+  }
+
+  /// 获取设备类型枚举
+  static DeviceType getDeviceType(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width >= largeDesktopBreakpoint) return DeviceType.largeDesktop;
+    if (width >= desktopBreakpoint) return DeviceType.desktop;
+    if (width >= tabletBreakpoint) return DeviceType.tablet;
+    if (width >= mobileBreakpoint) return DeviceType.largeMobile;
+    return DeviceType.mobile;
   }
 
   /// 获取屏幕宽度
@@ -52,14 +68,17 @@ class ResponsiveUtils {
   /// 获取横向内边距
   static double getHorizontalPadding(BuildContext context) {
     final width = getWidth(context);
-    if (width >= desktopBreakpoint) {
-      // 桌面端:使用最大宽度限制,居中显示
-      return (width - 800) / 2;
+    if (width >= largeDesktopBreakpoint) {
+      // 大屏桌面端：使用更宽的内容区域
+      return (width - 1200) / 2;
+    } else if (width >= desktopBreakpoint) {
+      // 桌面端：适中的内容区域
+      return (width - 900) / 2;
     } else if (width >= tabletBreakpoint) {
-      // 平板:适中的边距
+      // 平板：适中的边距
       return 32;
     } else {
-      // 移动端:较小边距
+      // 移动端：较小边距
       return 16;
     }
   }
@@ -67,8 +86,10 @@ class ResponsiveUtils {
   /// 获取内容最大宽度
   static double getMaxContentWidth(BuildContext context) {
     final width = getWidth(context);
-    if (width >= desktopBreakpoint) {
-      return 800; // 桌面端限制最大宽度
+    if (width >= largeDesktopBreakpoint) {
+      return 1200; // 大屏桌面端使用更宽的布局
+    } else if (width >= desktopBreakpoint) {
+      return 900; // 桌面端适中宽度
     }
     return width; // 移动端和平板使用全宽
   }
@@ -189,7 +210,9 @@ class ResponsiveUtils {
   /// 获取网格列数
   static int getGridColumns(BuildContext context) {
     final width = getWidth(context);
-    if (width >= desktopBreakpoint) {
+    if (width >= largeDesktopBreakpoint) {
+      return 3; // 大屏桌面端显示3列
+    } else if (width >= desktopBreakpoint) {
       return 2; // 桌面端显示2列
     } else if (width >= tabletBreakpoint) {
       return 2; // 平板显示2列
@@ -289,4 +312,131 @@ class ResponsiveUtils {
     final scaleFactor = getCardScaleFactor(cardHeight);
     return (12 * scaleFactor).clamp(11.0, 13.0);
   }
+
+  /// Web 端报告页面布局配置
+  /// 根据屏幕宽度返回不同的布局参数
+  static ReportLayoutConfig getReportLayoutConfig(BuildContext context) {
+    final deviceType = getDeviceType(context);
+    
+    switch (deviceType) {
+      case DeviceType.largeDesktop:
+        return ReportLayoutConfig(
+          contentMaxWidth: 1200,
+          horizontalPadding: 48,
+          cardSpacing: 24,
+          useMultiColumn: true,
+          summaryColumns: 2,
+          detailColumns: 2,
+        );
+      case DeviceType.desktop:
+        return ReportLayoutConfig(
+          contentMaxWidth: 900,
+          horizontalPadding: 32,
+          cardSpacing: 20,
+          useMultiColumn: true,
+          summaryColumns: 2,
+          detailColumns: 1,
+        );
+      case DeviceType.tablet:
+        return ReportLayoutConfig(
+          contentMaxWidth: 700,
+          horizontalPadding: 24,
+          cardSpacing: 16,
+          useMultiColumn: false,
+          summaryColumns: 1,
+          detailColumns: 1,
+        );
+      case DeviceType.largeMobile:
+        return ReportLayoutConfig(
+          contentMaxWidth: double.infinity,
+          horizontalPadding: 20,
+          cardSpacing: 16,
+          useMultiColumn: false,
+          summaryColumns: 1,
+          detailColumns: 1,
+        );
+      case DeviceType.mobile:
+        return ReportLayoutConfig(
+          contentMaxWidth: double.infinity,
+          horizontalPadding: 16,
+          cardSpacing: 12,
+          useMultiColumn: false,
+          summaryColumns: 1,
+          detailColumns: 1,
+        );
+    }
+  }
+
+  /// 获取测试页面布局配置
+  static QuizTestLayoutConfig getQuizTestLayoutConfig(BuildContext context) {
+    final deviceType = getDeviceType(context);
+    
+    switch (deviceType) {
+      case DeviceType.largeDesktop:
+      case DeviceType.desktop:
+        return QuizTestLayoutConfig(
+          contentMaxWidth: 800,
+          horizontalPadding: 32,
+          cardSpacing: 16,
+          showSidePanel: true,
+        );
+      case DeviceType.tablet:
+        return QuizTestLayoutConfig(
+          contentMaxWidth: 700,
+          horizontalPadding: 24,
+          cardSpacing: 14,
+          showSidePanel: false,
+        );
+      default:
+        return QuizTestLayoutConfig(
+          contentMaxWidth: double.infinity,
+          horizontalPadding: 16,
+          cardSpacing: 12,
+          showSidePanel: false,
+        );
+    }
+  }
+}
+
+/// 设备类型枚举
+enum DeviceType {
+  mobile,        // < 600px
+  largeMobile,   // 600px - 900px
+  tablet,        // 900px - 1200px
+  desktop,       // 1200px - 1440px
+  largeDesktop,  // >= 1440px
+}
+
+/// 报告页面布局配置
+class ReportLayoutConfig {
+  final double contentMaxWidth;
+  final double horizontalPadding;
+  final double cardSpacing;
+  final bool useMultiColumn;
+  final int summaryColumns;
+  final int detailColumns;
+
+  ReportLayoutConfig({
+    required this.contentMaxWidth,
+    required this.horizontalPadding,
+    required this.cardSpacing,
+    required this.useMultiColumn,
+    required this.summaryColumns,
+    required this.detailColumns,
+  });
+}
+
+/// 测试页面布局配置
+class QuizTestLayoutConfig {
+  final double contentMaxWidth;
+  final double horizontalPadding;
+  final double cardSpacing;
+  final bool showSidePanel;
+
+  QuizTestLayoutConfig({
+    required this.contentMaxWidth,
+    required this.horizontalPadding,
+    required this.cardSpacing,
+    required this.showSidePanel,
+  });
 }

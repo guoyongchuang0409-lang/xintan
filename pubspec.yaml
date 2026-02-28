@@ -32,6 +32,12 @@ dependencies:
   # Utilities
   uuid: ^4.5.1
   
+  # HTTP Client
+  dio: ^5.7.0
+  
+  # QR Code
+  qr_flutter: ^4.1.0
+  
   # Audio
   audioplayers: ^6.1.0
 

@@ -2,7 +2,9 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../../domain/models/quiz_report.dart';
-class LocalDatabase {
+import 'database_interface.dart';
+
+class LocalDatabase implements DatabaseInterface {
   static const String _databaseName = 'personality_quiz.db';
   static const int _databaseVersion = 1;
   static const String _reportsTable = 'quiz_reports';
@@ -44,6 +46,8 @@ class LocalDatabase {
       )
     ''');
   }
+
+  @override
   Future<void> insertReport(QuizReport report) async {
     final db = await database;
     await db.insert(
@@ -58,6 +62,8 @@ class LocalDatabase {
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
+
+  @override
   Future<List<QuizReport>> getAllReports() async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -70,6 +76,8 @@ class LocalDatabase {
       return QuizReport.fromJson(data);
     }).toList();
   }
+
+  @override
   Future<QuizReport?> getReportById(String id) async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -85,6 +93,8 @@ class LocalDatabase {
     final data = jsonDecode(maps.first['data'] as String) as Map<String, dynamic>;
     return QuizReport.fromJson(data);
   }
+
+  @override
   Future<void> deleteReport(String id) async {
     final db = await database;
     await db.delete(
@@ -93,10 +103,14 @@ class LocalDatabase {
       whereArgs: [id],
     );
   }
+
+  @override
   Future<void> deleteAllReports() async {
     final db = await database;
     await db.delete(_reportsTable);
   }
+
+  @override
   Future<void> close() async {
     final db = await database;
     await db.close();
