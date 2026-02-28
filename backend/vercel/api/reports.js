@@ -19,6 +19,21 @@ export default async function handler(req, res) {
   }
 
   try {
+    // 检查表是否存在
+    const tableCheck = await sql`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'reports'
+      )
+    `;
+
+    if (!tableCheck.rows[0].exists) {
+      return res.status(503).json({ 
+        success: false, 
+        error: '数据库表尚未创建，请先初始化数据库' 
+      });
+    }
+
     // POST - 保存新报告
     if (req.method === 'POST') {
       const { shareCode, quizTypeId, quizTypeName, reportData } = req.body;

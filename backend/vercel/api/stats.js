@@ -17,6 +17,29 @@ export default async function handler(req, res) {
   }
 
   try {
+    // 检查表是否存在
+    const tableCheck = await sql`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'reports'
+      )
+    `;
+
+    if (!tableCheck.rows[0].exists) {
+      // 表不存在，返回空数据
+      return res.status(200).json({
+        success: true,
+        data: {
+          totalReports: 0,
+          todayReports: 0,
+          weekReports: 0,
+          totalViews: 0,
+          byType: [],
+        },
+        message: '数据库表尚未创建，请先初始化数据库'
+      });
+    }
+
     // 总报告数
     const totalResult = await sql`SELECT COUNT(*) as total FROM reports`;
     const total = parseInt(totalResult.rows[0].total);
