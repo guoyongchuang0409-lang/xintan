@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "buildCommand": "cd backend/vercel && npm install",
+  "builds": [
+    {
+      "src": "backend/vercel/api/**/*.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/backend/vercel/api/$1"
+    }
+  ]
+}
